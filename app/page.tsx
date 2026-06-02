@@ -131,6 +131,13 @@ export default async function Home() {
                     >
                       Configurações
                     </a>
+
+                    <a
+                      href="/admin/classificacao"
+                      className="rounded-xl border border-purple-500/40 px-5 py-3 text-sm font-bold text-purple-300 transition hover:bg-purple-500 hover:text-white"
+                    >
+                      Classificação
+                    </a>
                   </>
                 )}
 

@@ -23,3 +23,33 @@ export function formatStatus(status: MatchStatus) {
 
   return statuses[status];
 }
+
+type MatchLockParams = {
+  startsAt: Date | null;
+  status: string;
+  globalLocked: boolean;
+};
+
+export function isMatchPredictionLocked({
+  startsAt,
+  status,
+  globalLocked,
+}: MatchLockParams) {
+  if (globalLocked) {
+    return true;
+  }
+
+  if (status === 'FINISHED') {
+    return true;
+  }
+
+  if (!startsAt) {
+    return false;
+  }
+
+  const now = new Date();
+  const lockTime = new Date(startsAt);
+  lockTime.setHours(lockTime.getHours() - 2);
+
+  return now >= lockTime;
+}

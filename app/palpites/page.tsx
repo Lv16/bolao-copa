@@ -3,7 +3,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
 import { MatchPhase } from '@prisma/client';
-import { formatPhase, formatStatus } from '@/lib/format';
+import { formatPhase, formatStatus, isMatchPredictionLocked } from '@/lib/format';
 
 async function savePredictions(formData: FormData) {
   'use server';
@@ -30,10 +30,21 @@ async function savePredictions(formData: FormData) {
   const matches = await prisma.match.findMany({
     select: {
       id: true,
+      startsAt: true,
+      status: true,
     },
   });
 
   for (const match of matches) {
+    const matchLocked = isMatchPredictionLocked({
+      startsAt: match.startsAt,
+      status: match.status,
+      globalLocked: false,
+    });
+
+    if (matchLocked) {
+      continue;
+    }
     const homeValue = formData.get(`homeScore_${match.id}`);
     const awayValue = formData.get(`awayScore_${match.id}`);
 
@@ -102,7 +113,7 @@ export default async function PalpitesPage() {
     },
   });
 
-  const locked = setting?.value === "true";
+  const globalLocked = setting?.value === "true";
 
   const matches = await prisma.match.findMany({
     include: {
@@ -187,7 +198,7 @@ export default async function PalpitesPage() {
               {user?.name ?? "Não encontrado"}
             </div>
 
-            {locked && (
+            {globalLocked && (
               <div className="mt-3 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
                 Os palpites estão bloqueados.
               </div>
@@ -259,6 +270,12 @@ export default async function PalpitesPage() {
                     {groupMatches.map((match) => {
                       const prediction = match.predictions[0];
 
+                      const matchLocked = isMatchPredictionLocked({
+                        startsAt: match.startsAt,
+                        status: match.status,
+                        globalLocked,
+                      });
+
                       return (
                         <div
                           key={match.id}
@@ -278,8 +295,19 @@ export default async function PalpitesPage() {
                             </div>
 
                             <div className="text-right text-xs text-zinc-500">
-                              Status: {formatStatus(match.status)}
-                              {prediction ? (
+                              <div>Status: {formatStatus(match.status)}</div>
+                              {match.startsAt && (
+                                <div className="text-xs text-zinc-400">
+                                  {match.startsAt.toLocaleString('pt-BR', {
+                                    dateStyle: 'short',
+                                    timeStyle: 'short',
+                                  })}
+                                </div>
+                              )}
+
+                              {matchLocked ? (
+                                <div className="mt-1 text-red-300">Palpite bloqueado</div>
+                              ) : prediction ? (
                                 <div className="mt-1 text-green-300">
                                   Palpite salvo — {prediction.points} pts
                                 </div>
@@ -302,7 +330,7 @@ export default async function PalpitesPage() {
                               type="number"
                               min="0"
                               defaultValue={prediction?.homeScore ?? ""}
-                              disabled={locked}
+                              disabled={matchLocked}
                               className="rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-3 text-center font-bold outline-none focus:border-green-400 disabled:cursor-not-allowed disabled:opacity-50"
                             />
 
@@ -313,7 +341,7 @@ export default async function PalpitesPage() {
                               type="number"
                               min="0"
                               defaultValue={prediction?.awayScore ?? ""}
-                              disabled={locked}
+                              disabled={matchLocked}
                               className="rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-3 text-center font-bold outline-none focus:border-green-400 disabled:cursor-not-allowed disabled:opacity-50"
                             />
 
@@ -337,7 +365,7 @@ export default async function PalpitesPage() {
           <div className="mt-6">
             <button
               type="submit"
-              disabled={locked}
+              disabled={globalLocked}
               className="rounded-xl bg-green-500 px-5 py-3 text-sm font-bold text-zinc-950 transition hover:bg-green-400 disabled:cursor-not-allowed disabled:opacity-50"
             >
               Salvar todos os palpites — {filledPredictions}/{totalMatches}
