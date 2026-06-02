@@ -50,6 +50,10 @@ export default async function LigaPage() {
             <p className="mt-2 text-zinc-400">
               Código da liga: {league.inviteCode}
             </p>
+          
+            <p className="mt-2 text-zinc-400">
+              Logado como: {session.user.name}
+            </p>
           </div>
 
           <div className="flex gap-3">
@@ -81,7 +85,7 @@ export default async function LigaPage() {
           </div>
         </div>
 
-        <div className="mb-6 grid gap-4 md:grid-cols-3">
+        <div className="mb-6 grid gap-4 md:grid-cols-4">
           <a
             href="/palpites"
             className="rounded-2xl border border-zinc-800 bg-zinc-900 p-6 transition hover:border-green-500/40"
@@ -112,6 +116,17 @@ export default async function LigaPage() {
             <h3 className="mt-3 text-xl font-bold">Minhas ligas</h3>
             <p className="mt-1 text-sm text-zinc-400">
               Trocar entre ligas que você participa.
+            </p>
+          </a>
+
+          <a
+            href="/liga/membros"
+            className="rounded-2xl border border-zinc-800 bg-zinc-900 p-6 transition hover:border-green-500/40"
+          >
+            <div className="text-3xl font-bold">👥</div>
+            <h3 className="mt-3 text-xl font-bold">Membros</h3>
+            <p className="mt-1 text-sm text-zinc-400">
+              Gerenciar participantes da liga.
             </p>
           </a>
         </div>

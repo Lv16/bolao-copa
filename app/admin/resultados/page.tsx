@@ -2,7 +2,8 @@ import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getCurrentSession } from "@/lib/auth";
-import { MatchStatus } from "@prisma/client";
+import { MatchPhase, MatchStatus } from "@prisma/client";
+import { formatPhase, formatStatus } from '@/lib/format';
 
 async function updateResult(formData: FormData) {
   "use server";
@@ -129,6 +130,33 @@ export default async function AdminResultadosPage() {
     },
   });
 
+  const matchesByPhaseAndGroup = matches.reduce((acc, match) => {
+    const phase = match.phase;
+    const group = match.groupName ?? 'Mata-mata';
+
+    if (!acc[phase]) {
+      acc[phase] = {};
+    }
+
+    if (!acc[phase][group]) {
+      acc[phase][group] = [];
+    }
+
+    acc[phase][group].push(match);
+
+    return acc;
+  }, {} as Record<string, Record<string, typeof matches[number][]>>);
+
+  const phaseOrder: MatchPhase[] = [
+    'GROUP',
+    'ROUND_OF_32',
+    'ROUND_OF_16',
+    'QUARTER_FINAL',
+    'SEMI_FINAL',
+    'THIRD_PLACE',
+    'FINAL',
+  ];
+
   return (
     <main className="min-h-screen bg-zinc-950 text-white">
       <section className="mx-auto max-w-6xl px-6 py-10">
@@ -155,76 +183,107 @@ export default async function AdminResultadosPage() {
         </div>
 
         <div className="grid gap-4">
-          {matches.map((match) => (
-            <div
-              key={match.id}
-              className="rounded-2xl border border-zinc-800 bg-zinc-900 p-5"
-            >
-              <div className="mb-4 flex items-center justify-between gap-4">
-                <div>
-                  <span className="rounded-full bg-zinc-800 px-3 py-1 text-xs font-semibold text-zinc-300">
-                    Jogo {match.number}
-                  </span>
+          {phaseOrder.map((phase) => {
+            const phaseGroups = matchesByPhaseAndGroup[phase as string];
 
-                  {match.groupName && (
-                    <span className="ml-2 rounded-full bg-blue-500/10 px-3 py-1 text-xs font-semibold text-blue-300">
-                      Grupo {match.groupName}
-                    </span>
-                  )}
+            if (!phaseGroups) {
+              return null;
+            }
+
+            return (
+              <div key={phase}>
+                <div className="mb-3">
+                  <h3 className="text-xl font-bold">{formatPhase(phase as MatchPhase)}</h3>
+                  <p className="text-sm text-zinc-400">Lance os resultados reais dos jogos desta fase.</p>
                 </div>
 
-                <span className="text-xs text-zinc-500">{match.status}</span>
+                {Object.entries(phaseGroups).map(([groupName, groupMatches]) => (
+                  <div key={groupName} className="mb-4">
+                    <div className="mb-3 flex items-center justify-between gap-4">
+                      <div>
+                        <h4 className="text-lg font-bold">
+                          {phase === 'GROUP' ? `Grupo ${groupName}` : groupName}
+                        </h4>
+
+                        <p className="text-sm text-zinc-400">{groupMatches.length} jogos</p>
+                      </div>
+                    </div>
+
+                    {groupMatches.map((match) => (
+                      <div
+                        key={match.id}
+                        className="rounded-2xl border border-zinc-800 bg-zinc-900 p-5 mb-3"
+                      >
+                        <div className="mb-4 flex items-center justify-between gap-4">
+                          <div>
+                            <span className="rounded-full bg-zinc-800 px-3 py-1 text-xs font-semibold text-zinc-300">
+                              Jogo {match.number}
+                            </span>
+
+                            {match.groupName && (
+                              <span className="ml-2 rounded-full bg-blue-500/10 px-3 py-1 text-xs font-semibold text-blue-300">
+                                Grupo {match.groupName}
+                              </span>
+                            )}
+                          </div>
+
+                          <span className="text-xs text-zinc-500">{formatStatus(match.status)}</span>
+                        </div>
+
+                        <form
+                          action={updateResult}
+                          className="grid grid-cols-[1fr_90px_40px_90px_1fr_auto] items-center gap-3"
+                        >
+                          <input type="hidden" name="matchId" value={match.id} />
+
+                          <div className="text-right">
+                            <p className="font-bold">
+                              {match.homeTeam?.name ?? match.homeSlot}
+                            </p>
+                            <p className="text-xs text-zinc-500">{match.homeSlot}</p>
+                          </div>
+
+                          <input
+                            name="homeScore"
+                            type="number"
+                            min="0"
+                            defaultValue={match.homeScore ?? ""}
+                            className="rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-3 text-center font-bold outline-none focus:border-green-400"
+                            required
+                          />
+
+                          <span className="text-center font-bold text-zinc-500">x</span>
+
+                          <input
+                            name="awayScore"
+                            type="number"
+                            min="0"
+                            defaultValue={match.awayScore ?? ""}
+                            className="rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-3 text-center font-bold outline-none focus:border-green-400"
+                            required
+                          />
+
+                          <div>
+                            <p className="font-bold">
+                              {match.awayTeam?.name ?? match.awaySlot}
+                            </p>
+                            <p className="text-xs text-zinc-500">{match.awaySlot}</p>
+                          </div>
+
+                          <button
+                            type="submit"
+                            className="rounded-xl bg-green-500 px-5 py-3 text-sm font-bold text-zinc-950 transition hover:bg-green-400"
+                          >
+                            Salvar
+                          </button>
+                        </form>
+                      </div>
+                    ))}
+                  </div>
+                ))}
               </div>
-
-              <form
-                action={updateResult}
-                className="grid grid-cols-[1fr_90px_40px_90px_1fr_auto] items-center gap-3"
-              >
-                <input type="hidden" name="matchId" value={match.id} />
-
-                <div className="text-right">
-                  <p className="font-bold">
-                    {match.homeTeam?.name ?? match.homeSlot}
-                  </p>
-                  <p className="text-xs text-zinc-500">{match.homeSlot}</p>
-                </div>
-
-                <input
-                  name="homeScore"
-                  type="number"
-                  min="0"
-                  defaultValue={match.homeScore ?? ""}
-                  className="rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-3 text-center font-bold outline-none focus:border-green-400"
-                  required
-                />
-
-                <span className="text-center font-bold text-zinc-500">x</span>
-
-                <input
-                  name="awayScore"
-                  type="number"
-                  min="0"
-                  defaultValue={match.awayScore ?? ""}
-                  className="rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-3 text-center font-bold outline-none focus:border-green-400"
-                  required
-                />
-
-                <div>
-                  <p className="font-bold">
-                    {match.awayTeam?.name ?? match.awaySlot}
-                  </p>
-                  <p className="text-xs text-zinc-500">{match.awaySlot}</p>
-                </div>
-
-                <button
-                  type="submit"
-                  className="rounded-xl bg-green-500 px-5 py-3 text-sm font-bold text-zinc-950 transition hover:bg-green-400"
-                >
-                  Salvar
-                </button>
-              </form>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </section>
     </main>

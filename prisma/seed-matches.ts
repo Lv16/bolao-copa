@@ -1,6 +1,5 @@
 import { MatchPhase } from '@prisma/client';
 import { prisma } from '../lib/prisma';
-import bcrypt from 'bcryptjs';
 import fs from 'fs';
 import path from 'path';
 import { parse } from 'csv-parse/sync';
@@ -37,21 +36,26 @@ function parseDate(value: string | undefined) {
   return date;
 }
 
-async function createOrFindTeam(params: {
+async function upsertTeam(params: {
   name: string;
   groupName: string | null;
   slotCode: string | null;
 }) {
-  const existingBySlot = params.slotCode
-    ? await prisma.team.findUnique({
-        where: {
-          slotCode: params.slotCode,
-        },
-      })
-    : null;
-
-  if (existingBySlot) {
-    return existingBySlot;
+  if (params.slotCode) {
+    return prisma.team.upsert({
+      where: {
+        slotCode: params.slotCode,
+      },
+      update: {
+        name: params.name,
+        groupName: params.groupName,
+      },
+      create: {
+        name: params.name,
+        groupName: params.groupName,
+        slotCode: params.slotCode,
+      },
+    });
   }
 
   return prisma.team.create({
@@ -64,67 +68,17 @@ async function createOrFindTeam(params: {
 }
 
 async function main() {
-  console.log('Limpando banco...');
-
-  await prisma.prediction.deleteMany();
-  await prisma.leagueMember.deleteMany();
-  await prisma.league.deleteMany();
-  await prisma.match.deleteMany();
-  await prisma.team.deleteMany();
-  await prisma.appSetting.deleteMany();
-  await prisma.user.deleteMany();
-
-  console.log('Criando admin do sistema...');
-
-  const hashedPassword = await bcrypt.hash('admin123', 10);
-
-  const admin = await prisma.user.create({
-    data: {
-      name: 'Admin',
-      email: 'admin@bolao.com',
-      password: hashedPassword,
-      isSystemAdmin: true,
-    },
-  });
-
-  console.log('Criando liga padrão...');
-
-  const league = await prisma.league.create({
-    data: {
-      name: 'Bolão Copa 2026',
-      inviteCode: 'COPA26',
-      ownerId: admin.id,
-    },
-  });
-
-  await prisma.leagueMember.create({
-    data: {
-      leagueId: league.id,
-      userId: admin.id,
-      role: 'ADMIN',
-    },
-  });
-
-  await prisma.appSetting.createMany({
-    data: [
-      {
-        key: 'predictions_locked',
-        value: 'false',
-      },
-      {
-        key: 'world_cup_started',
-        value: 'false',
-      },
-    ],
-  });
-
-  console.log('Lendo CSV de jogos...');
+  console.log('Atualizando jogos pelo CSV...');
 
   const csvPath = path.join(
     process.cwd(),
     'data',
     'worldcup-2026-matches.csv'
   );
+
+  if (!fs.existsSync(csvPath)) {
+    throw new Error(`Arquivo CSV não encontrado em: ${csvPath}`);
+  }
 
   const csvContent = fs.readFileSync(csvPath, 'utf-8');
 
@@ -150,26 +104,39 @@ async function main() {
     const awaySlot = normalizeText(row.awaySlot);
     const homeTeamName = normalizeText(row.homeTeam);
     const awayTeamName = normalizeText(row.awayTeam);
+    const startsAt = parseDate(row.startsAt);
 
     if (!homeTeamName || !awayTeamName) {
       console.warn(`Jogo ${number} ignorado por time vazio.`);
       continue;
     }
 
-    const homeTeam = await createOrFindTeam({
+    const homeTeam = await upsertTeam({
       name: homeTeamName,
       groupName,
       slotCode: homeSlot,
     });
 
-    const awayTeam = await createOrFindTeam({
+    const awayTeam = await upsertTeam({
       name: awayTeamName,
       groupName,
       slotCode: awaySlot,
     });
 
-    await prisma.match.create({
-      data: {
+    await prisma.match.upsert({
+      where: {
+        number,
+      },
+      update: {
+        phase,
+        groupName,
+        homeSlot,
+        awaySlot,
+        homeTeamId: homeTeam.id,
+        awayTeamId: awayTeam.id,
+        startsAt,
+      },
+      create: {
         number,
         phase,
         groupName,
@@ -177,15 +144,14 @@ async function main() {
         awaySlot,
         homeTeamId: homeTeam.id,
         awayTeamId: awayTeam.id,
-        startsAt: parseDate(row.startsAt),
+        startsAt,
       },
     });
+
+    console.log(`Jogo ${number} atualizado.`);
   }
 
-  console.log('Seed finalizado!');
-  console.log('Login admin: admin@bolao.com');
-  console.log('Senha admin: admin123');
-  console.log('Código da liga: COPA26');
+  console.log('Atualização de jogos finalizada!');
 }
 
 main()

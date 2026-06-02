@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "seed": "tsx prisma/seed.ts"
+    "seed": "tsx prisma/seed.ts",
+    "seed:matches": "tsx prisma/seed-matches.ts"
   },
   "dependencies": {
     "@prisma/adapter-better-sqlite3": "^7.8.0",
@@ -15,6 +16,7 @@
     "@supabase/supabase-js": "^2.106.2",
     "bcryptjs": "^3.0.3",
     "better-sqlite3": "^12.10.0",
+    "csv-parse": "^6.2.1",
     "next": "16.2.7",
     "prisma": "^7.8.0",
     "react": "19.2.4",
