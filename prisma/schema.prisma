@@ -1,0 +1,129 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+enum UserRole {
+  ADMIN
+  MEMBER
+}
+
+enum MatchPhase {
+  GROUP
+  ROUND_OF_32
+  ROUND_OF_16
+  QUARTER_FINAL
+  SEMI_FINAL
+  THIRD_PLACE
+  FINAL
+}
+
+enum MatchStatus {
+  SCHEDULED
+  IN_PROGRESS
+  FINISHED
+}
+
+model User {
+  id        String   @id @default(cuid())
+  name      String
+  email     String   @unique
+  password  String
+  isSystemAdmin Boolean @default(false)
+  createdAt DateTime @default(now())
+
+  ownedLeagues League[]       @relation("LeagueOwner")
+  memberships  LeagueMember[]
+  predictions  Prediction[]
+}
+
+model League {
+  id         String   @id @default(cuid())
+  name       String
+  inviteCode String   @unique
+  ownerId    String
+  createdAt  DateTime @default(now())
+
+  owner       User           @relation("LeagueOwner", fields: [ownerId], references: [id])
+  members     LeagueMember[]
+  predictions Prediction[]
+}
+
+model LeagueMember {
+  id        String   @id @default(cuid())
+  leagueId  String
+  userId    String
+  role      UserRole @default(MEMBER)
+  createdAt DateTime @default(now())
+
+  league League @relation(fields: [leagueId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([leagueId, userId])
+}
+
+model Team {
+  id        String   @id @default(cuid())
+  name      String
+  groupName String?
+  slotCode  String?  @unique
+
+  homeMatches Match[] @relation("HomeTeam")
+  awayMatches Match[] @relation("AwayTeam")
+}
+
+model Match {
+  id          String      @id @default(cuid())
+  number      Int         @unique
+  phase       MatchPhase
+  groupName   String?
+  homeTeamId  String?
+  awayTeamId  String?
+  homeSlot    String?
+  awaySlot    String?
+  startsAt    DateTime?
+  status      MatchStatus @default(SCHEDULED)
+
+  homeScore   Int?
+  awayScore   Int?
+
+  nextMatchId String?
+  nextSlot    String?
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  homeTeam    Team?        @relation("HomeTeam", fields: [homeTeamId], references: [id])
+  awayTeam    Team?        @relation("AwayTeam", fields: [awayTeamId], references: [id])
+  predictions Prediction[]
+}
+
+model Prediction {
+  id        String   @id @default(cuid())
+  leagueId  String
+  userId    String
+  matchId   String
+
+  homeScore Int
+  awayScore Int
+  points    Int      @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  league League @relation(fields: [leagueId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  match  Match  @relation(fields: [matchId], references: [id], onDelete: Cascade)
+
+  @@unique([leagueId, userId, matchId])
+}
+
+model AppSetting {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     String
+  updatedAt DateTime @updatedAt
+}
