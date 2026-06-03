@@ -8,7 +8,9 @@
     "start": "next start",
     "lint": "next lint",
     "seed": "tsx prisma/seed.ts",
-    "seed:matches": "tsx prisma/seed-matches.ts"
+    "seed:matches": "tsx prisma/seed-matches.ts",
+    "seed:knockout": "tsx prisma/seed-knockout.ts",
+    "resolve:knockout": "tsx prisma/resolve-knockout-slots.ts"
   },
   "dependencies": {
     "@prisma/adapter-better-sqlite3": "^7.8.0",

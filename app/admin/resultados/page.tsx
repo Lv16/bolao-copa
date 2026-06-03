@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { getCurrentSession } from "@/lib/auth";
 import { MatchPhase, MatchStatus } from "@prisma/client";
 import { formatPhase, formatStatus } from '@/lib/format';
+import { resolveSimpleKnockoutSlots } from '@/lib/knockout';
 
 async function updateResult(formData: FormData) {
   "use server";
@@ -33,6 +34,7 @@ async function updateResult(formData: FormData) {
   });
 
   await recalculatePredictions(matchId);
+  await resolveSimpleKnockoutSlots();
 
   revalidatePath("/");
   revalidatePath("/admin/resultados");

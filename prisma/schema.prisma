@@ -90,8 +90,12 @@ model Match {
   homeScore   Int?
   awayScore   Int?
 
-  nextMatchId String?
-  nextSlot    String?
+  nextMatchId     String?
+  nextMatchNumber Int?
+  nextSlot        String?
+
+  loserNextMatchNumber Int?
+  loserNextSlot        String?
 
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
