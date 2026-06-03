@@ -59,6 +59,12 @@ async function savePredictions(formData: FormData) {
       continue;
     }
 
+    const winnerTeamIdValue = formData.get(`winnerTeamId_${match.id}`);
+    const winnerTeamId =
+      typeof winnerTeamIdValue === 'string' && winnerTeamIdValue
+        ? winnerTeamIdValue
+        : null;
+
     await prisma.prediction.upsert({
       where: {
         leagueId_userId_matchId: {
@@ -70,6 +76,7 @@ async function savePredictions(formData: FormData) {
       update: {
         homeScore,
         awayScore,
+        winnerTeamId,
       },
       create: {
         leagueId,
@@ -77,6 +84,7 @@ async function savePredictions(formData: FormData) {
         matchId: match.id,
         homeScore,
         awayScore,
+        winnerTeamId,
       },
     });
   }
@@ -353,6 +361,25 @@ export default async function PalpitesPage() {
                             </div>
 
                             <div />
+                            {match.phase !== 'GROUP' && (
+                              <div className="flex flex-col">
+                                <label className="text-xs text-zinc-400 mb-1">Classificado</label>
+                                <select
+                                  name={`winnerTeamId_${match.id}`}
+                                  defaultValue={prediction?.winnerTeamId ?? ''}
+                                  disabled={matchLocked}
+                                  className="rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm outline-none disabled:cursor-not-allowed disabled:opacity-50"
+                                >
+                                  <option value="">—</option>
+                                  {match.homeTeam && (
+                                    <option value={match.homeTeam.id}>{match.homeTeam.name}</option>
+                                  )}
+                                  {match.awayTeam && (
+                                    <option value={match.awayTeam.id}>{match.awayTeam.name}</option>
+                                  )}
+                                </select>
+                              </div>
+                            )}
                           </div>
                         </div>
                       );

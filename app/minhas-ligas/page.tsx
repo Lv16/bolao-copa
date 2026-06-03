@@ -1,14 +1,14 @@
 import { prisma } from '@/lib/prisma';
-import { getCurrentSession } from '@/lib/auth';
+import { getCurrentUser, getCurrentSession } from '@/lib/auth';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 
 async function selectLeague(formData: FormData) {
   'use server';
 
-  const session = await getCurrentSession();
+  const user = await getCurrentUser();
 
-  if (!session) {
+  if (!user) {
     redirect('/login');
   }
 
@@ -22,7 +22,7 @@ async function selectLeague(formData: FormData) {
     where: {
       leagueId_userId: {
         leagueId,
-        userId: session.user.id,
+        userId: user.id,
       },
     },
   });
@@ -44,15 +44,16 @@ async function selectLeague(formData: FormData) {
 }
 
 export default async function MinhasLigasPage() {
+  const user = await getCurrentUser();
   const session = await getCurrentSession();
 
-  if (!session) {
+  if (!user) {
     redirect('/login');
   }
 
   const memberships = await prisma.leagueMember.findMany({
     where: {
-      userId: session.user.id,
+      userId: user.id,
     },
     include: {
       league: true,
@@ -99,7 +100,7 @@ export default async function MinhasLigasPage() {
 
         <div className="grid gap-4">
           {memberships.map((membership) => {
-            const isActive = membership.leagueId === session.league.id;
+            const isActive = membership.leagueId === session?.league.id;
 
             return (
               <div
@@ -155,7 +156,27 @@ export default async function MinhasLigasPage() {
 
           {memberships.length === 0 && (
             <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-8 text-center text-zinc-400">
-              Você ainda não participa de nenhuma liga.
+              <h3 className="text-xl font-bold mb-2">Você ainda não participa de nenhuma liga</h3>
+
+              <p className="mb-4 text-sm text-zinc-400">
+                Você pode criar sua própria liga ou entrar em uma liga pelo link de convite que alguém te enviar.
+              </p>
+
+              <div className="flex items-center justify-center gap-3">
+                <a
+                  href="/ligas/criar"
+                  className="rounded-xl bg-green-500 px-5 py-3 text-sm font-bold text-zinc-950 transition hover:bg-green-400"
+                >
+                  Criar Liga
+                </a>
+
+                <a
+                  href="/"
+                  className="rounded-xl border border-zinc-700 px-5 py-3 text-sm font-bold text-zinc-200 transition hover:bg-zinc-800"
+                >
+                  Voltar para Home
+                </a>
+              </div>
             </div>
           )}
         </div>

@@ -1,11 +1,29 @@
-import { cookies } from "next/headers";
-import { prisma } from "./prisma";
+import { cookies } from 'next/headers';
+import { prisma } from './prisma';
+
+export async function getCurrentUser() {
+  const cookieStore = await cookies();
+
+  const userId = cookieStore.get('bolao_user_id')?.value;
+
+  if (!userId) {
+    return null;
+  }
+
+  const user = await prisma.user.findUnique({
+    where: {
+      id: userId,
+    },
+  });
+
+  return user;
+}
 
 export async function getCurrentSession() {
   const cookieStore = await cookies();
 
-  const userId = cookieStore.get("bolao_user_id")?.value;
-  const leagueId = cookieStore.get("bolao_league_id")?.value;
+  const userId = cookieStore.get('bolao_user_id')?.value;
+  const leagueId = cookieStore.get('bolao_league_id')?.value;
 
   if (!userId || !leagueId) {
     return null;
@@ -33,10 +51,4 @@ export async function getCurrentSession() {
     league: membership.league,
     membership,
   };
-}
-
-export async function isCurrentUserAdmin() {
-  const session = await getCurrentSession();
-
-  return session?.user.isSystemAdmin === true;
 }

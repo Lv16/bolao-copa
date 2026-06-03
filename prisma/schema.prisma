@@ -3,7 +3,7 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
 }
 
 enum UserRole {
@@ -73,6 +73,9 @@ model Team {
 
   homeMatches Match[] @relation("HomeTeam")
   awayMatches Match[] @relation("AwayTeam")
+
+  winnerMatches Match[] @relation("WinnerTeam")
+  winnerPredictions Prediction[] @relation("PredictionWinnerTeam")
 }
 
 model Match {
@@ -97,6 +100,9 @@ model Match {
   loserNextMatchNumber Int?
   loserNextSlot        String?
 
+  winnerTeamId String?
+  winnerTeam   Team? @relation("WinnerTeam", fields: [winnerTeamId], references: [id])
+
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -114,6 +120,9 @@ model Prediction {
   homeScore Int
   awayScore Int
   points    Int      @default(0)
+
+  winnerTeamId String?
+  winnerTeam   Team? @relation("PredictionWinnerTeam", fields: [winnerTeamId], references: [id])
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

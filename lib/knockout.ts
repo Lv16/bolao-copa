@@ -64,3 +64,104 @@ export async function resolveSimpleKnockoutSlots() {
     }
   }
 }
+
+function getWinnerAndLoser(match: {
+  homeTeamId: string | null;
+  awayTeamId: string | null;
+  winnerTeamId: string | null;
+  homeScore: number | null;
+  awayScore: number | null;
+}) {
+  if (
+    !match.homeTeamId ||
+    !match.awayTeamId ||
+    match.homeScore === null ||
+    match.awayScore === null
+  ) {
+    return null;
+  }
+
+  if (match.winnerTeamId) {
+    const loserTeamId =
+      match.winnerTeamId === match.homeTeamId
+        ? match.awayTeamId
+        : match.homeTeamId;
+
+    return {
+      winnerTeamId: match.winnerTeamId,
+      loserTeamId,
+    };
+  }
+
+  if (match.homeScore > match.awayScore) {
+    return {
+      winnerTeamId: match.homeTeamId,
+      loserTeamId: match.awayTeamId,
+    };
+  }
+
+  if (match.awayScore > match.homeScore) {
+    return {
+      winnerTeamId: match.awayTeamId,
+      loserTeamId: match.homeTeamId,
+    };
+  }
+
+  return null;
+}
+
+async function sendTeamToMatch(params: {
+  matchNumber: number | null;
+  slot: string | null;
+  teamId: string;
+}) {
+  if (!params.matchNumber || !params.slot) {
+    return;
+  }
+
+  const data =
+    params.slot === 'HOME'
+      ? {
+          homeTeamId: params.teamId,
+        }
+      : {
+          awayTeamId: params.teamId,
+        };
+
+  await prisma.match.update({
+    where: {
+      number: params.matchNumber,
+    },
+    data,
+  });
+}
+
+export async function advanceKnockoutWinner(matchId: string) {
+  const match = await prisma.match.findUnique({
+    where: {
+      id: matchId,
+    },
+  });
+
+  if (!match || match.phase === 'GROUP') {
+    return;
+  }
+
+  const result = getWinnerAndLoser(match);
+
+  if (!result) {
+    return;
+  }
+
+  await sendTeamToMatch({
+    matchNumber: match.nextMatchNumber,
+    slot: match.nextSlot,
+    teamId: result.winnerTeamId,
+  });
+
+  await sendTeamToMatch({
+    matchNumber: match.loserNextMatchNumber,
+    slot: match.loserNextSlot,
+    teamId: result.loserTeamId,
+  });
+}

@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { getCurrentSession } from "@/lib/auth";
 import { MatchPhase, MatchStatus } from "@prisma/client";
 import { formatPhase, formatStatus } from '@/lib/format';
-import { resolveSimpleKnockoutSlots } from '@/lib/knockout';
+import { advanceKnockoutWinner, resolveSimpleKnockoutSlots } from '@/lib/knockout';
 
 async function updateResult(formData: FormData) {
   "use server";
@@ -17,6 +17,7 @@ async function updateResult(formData: FormData) {
   const matchId = String(formData.get("matchId"));
   const homeScore = Number(formData.get("homeScore"));
   const awayScore = Number(formData.get("awayScore"));
+  const winnerTeamId = String(formData.get('winnerTeamId') || '');
 
   if (!matchId || Number.isNaN(homeScore) || Number.isNaN(awayScore)) {
     return;
@@ -30,14 +31,21 @@ async function updateResult(formData: FormData) {
       homeScore,
       awayScore,
       status: MatchStatus.FINISHED,
+      winnerTeamId: winnerTeamId || null,
     },
   });
 
   await recalculatePredictions(matchId);
   await resolveSimpleKnockoutSlots();
+  await advanceKnockoutWinner(matchId);
 
   revalidatePath("/");
   revalidatePath("/admin/resultados");
+  revalidatePath('/');
+  revalidatePath('/palpites');
+  revalidatePath('/admin/resultados');
+  revalidatePath('/admin/terceiros');
+  revalidatePath('/ranking');
   redirect("/admin/resultados");
 }
 
@@ -72,15 +80,36 @@ async function recalculatePredictions(matchId: string) {
     const exactScore =
       prediction.homeScore === realHome && prediction.awayScore === realAway;
 
-    const predictedResult = getResult(
-      prediction.homeScore,
-      prediction.awayScore,
-    );
+    if (match.phase !== 'GROUP') {
+      const realWinnerTeamId =
+        match.winnerTeamId ??
+        (realHome > realAway
+          ? match.homeTeamId
+          : realAway > realHome
+          ? match.awayTeamId
+          : null);
 
-    if (exactScore) {
-      points = 3;
-    } else if (predictedResult === realResult) {
-      points = 2;
+      const predictedWinnerCorrect =
+        !!prediction.winnerTeamId &&
+        !!realWinnerTeamId &&
+        prediction.winnerTeamId === realWinnerTeamId;
+
+      if (exactScore && predictedWinnerCorrect) {
+        points = 3;
+      } else if (predictedWinnerCorrect) {
+        points = 2;
+      }
+    } else {
+      const predictedResult = getResult(
+        prediction.homeScore,
+        prediction.awayScore
+      );
+
+      if (exactScore) {
+        points = 3;
+      } else if (predictedResult === realResult) {
+        points = 2;
+      }
     }
 
     await prisma.prediction.update({
@@ -271,6 +300,25 @@ export default async function AdminResultadosPage() {
                             </p>
                             <p className="text-xs text-zinc-500">{match.awaySlot}</p>
                           </div>
+
+                          {match.phase !== 'GROUP' && (
+                            <div className="flex flex-col">
+                              <label className="text-xs text-zinc-400 mb-1">Vencedor</label>
+                              <select
+                                name="winnerTeamId"
+                                defaultValue={match.winnerTeamId ?? ''}
+                                className="rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm outline-none"
+                              >
+                                <option value="">—</option>
+                                {match.homeTeam && (
+                                  <option value={match.homeTeam.id}>{match.homeTeam.name}</option>
+                                )}
+                                {match.awayTeam && (
+                                  <option value={match.awayTeam.id}>{match.awayTeam.name}</option>
+                                )}
+                              </select>
+                            </div>
+                          )}
 
                           <button
                             type="submit"

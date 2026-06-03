@@ -138,6 +138,13 @@ export default async function Home() {
                     >
                       Classificação
                     </a>
+
+                    <a 
+                      href="/admin/terceiros"
+                      className="rounded-xl border border-zinc-700 px-5 py-3 text-sm font-bold text-zinc-200 transition hover:bg-zinc-800"
+                    >
+                      Terceiros
+                    </a>
                   </>
                 )}
 
@@ -151,17 +158,17 @@ export default async function Home() {
             ) : (
               <>
                 <a
-                  href="/login"
+                  href="/cadastro"
                   className="rounded-xl bg-green-500 px-5 py-3 text-sm font-bold text-zinc-950 transition hover:bg-green-400"
                 >
-                  Login
+                  Criar conta
                 </a>
 
                 <a
-                  href="/entrar/COPA26"
+                  href="/login"
                   className="rounded-xl border border-zinc-700 px-5 py-3 text-sm font-bold text-zinc-200 transition hover:bg-zinc-800"
                 >
-                  Entrar por convite
+                  Login
                 </a>
               </>
             )}

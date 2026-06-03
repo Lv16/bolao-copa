@@ -34,30 +34,32 @@ async function login(formData: FormData) {
     return;
   }
 
-  const membership = user.memberships[0];
-
-  if (!membership) {
-    return;
-  }
-
   const cookieStore = await cookies();
 
-  cookieStore.set("bolao_user_id", user.id, {
-    httpOnly: true,
-    sameSite: "lax",
-    path: "/",
-    maxAge: 60 * 60 * 24 * 30,
-  });
+    cookieStore.set('bolao_user_id', user.id, {
+      httpOnly: true,
+      sameSite: 'lax',
+      path: '/',
+      maxAge: 60 * 60 * 24 * 30,
+    });
 
-  cookieStore.set("bolao_league_id", membership.league.id, {
-    httpOnly: true,
-    sameSite: "lax",
-    path: "/",
-    maxAge: 60 * 60 * 24 * 30,
-  });
+    const membership = user.memberships[0];
 
-  redirect("/liga");
+    if (!membership) {
+      redirect('/minhas-ligas');
+    }
+
+    cookieStore.set('bolao_league_id', membership.league.id, {
+      httpOnly: true,
+      sameSite: 'lax',
+      path: '/',
+      maxAge: 60 * 60 * 24 * 30,
+    });
+
+redirect('/minhas-ligas');
+
 }
+
 
 export default function LoginPage() {
   return (

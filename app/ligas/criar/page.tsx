@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { getCurrentSession } from "@/lib/auth";
+import { getCurrentUser  } from "@/lib/auth";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
@@ -17,9 +17,9 @@ function generateInviteCode() {
 async function createLeague(formData: FormData) {
   "use server";
 
-  const session = await getCurrentSession();
+  const user = await getCurrentUser();
 
-  if (!session) {
+  if (!user) {
     redirect("/login");
   }
 
@@ -51,14 +51,14 @@ async function createLeague(formData: FormData) {
     data: {
       name,
       inviteCode,
-      ownerId: session.user.id,
+      ownerId: user.id,
     },
   });
 
   await prisma.leagueMember.create({
     data: {
       leagueId: league.id,
-      userId: session.user.id,
+      userId: user.id,
       role: "ADMIN",
     },
   });
@@ -76,9 +76,9 @@ async function createLeague(formData: FormData) {
 }
 
 export default async function CriarLigaPage() {
-  const session = await getCurrentSession();
+  const user = await getCurrentUser();
 
-  if (!session) {
+  if (!user) {
     redirect("/login");
   }
 
