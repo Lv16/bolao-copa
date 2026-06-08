@@ -1,6 +1,11 @@
-import { prisma } from '@/lib/prisma';
-import { getCurrentSession } from '@/lib/auth';
+/* eslint-disable @next/next/no-img-element */
+import Link from 'next/link';
 import { redirect } from 'next/navigation';
+
+import logoImage from '@/app/img/logo.png';
+import { getCurrentSession } from '@/lib/auth';
+import { prisma } from '@/lib/prisma';
+import { sortRanking } from '@/lib/ranking';
 
 export default async function RankingPage() {
   const session = await getCurrentSession();
@@ -34,8 +39,8 @@ export default async function RankingPage() {
     redirect('/minhas-ligas');
   }
 
-  const ranking = league.members
-    .map((member) => {
+  const ranking = sortRanking(
+    league.members.map((member) => {
       const predictions = member.user.predictions;
 
       const totalPoints = predictions.reduce(
@@ -61,109 +66,117 @@ export default async function RankingPage() {
         correctResults,
       };
     })
-    .sort((a, b) => {
-      if (b.totalPoints !== a.totalPoints) {
-        return b.totalPoints - a.totalPoints;
-      }
-
-      if (b.exactScores !== a.exactScores) {
-        return b.exactScores - a.exactScores;
-      }
-
-      return a.name.localeCompare(b.name);
-    });
+  );
 
   return (
-    <main className="min-h-screen bg-zinc-950 text-white">
-      <section className="mx-auto max-w-5xl px-6 py-10">
-        <div className="mb-8 flex items-center justify-between gap-4">
-          <div>
-            <p className="mb-2 text-sm font-semibold uppercase tracking-[0.3em] text-green-400">
-              Ranking
-            </p>
+    <main className="min-h-screen bg-black text-white">
+      <section className="relative mx-auto flex min-h-screen w-full max-w-md flex-col px-4 pb-10 pt-6 sm:max-w-lg sm:px-6">
+        <div className="mb-5 flex justify-center">
+          <img
+            src={logoImage.src}
+            alt="Logo Bolao Copa 2026"
+            className="w-44 max-w-[72vw] sm:w-52"
+          />
+        </div>
 
-            <h1 className="text-4xl font-bold">
-              {league.name}
-            </h1>
-
-            <p className="mt-2 text-zinc-400">
-              Pontuação geral da liga ativa. Critério de desempate: mais placares exatos.
-            </p>
+        <div className="mx-auto w-full max-w-[15.3rem] rounded-[2rem] border border-[#12338d] bg-[#050812] px-4 py-4 text-center shadow-[0_12px_34px_rgba(0,0,0,0.38)]">
+          <h1 className="text-[1rem] font-black leading-tight text-white">
+            <span className="mr-2 inline-block h-2 w-2 rounded-full bg-[#36ff49]" />
+            {league.name}
+          </h1>
+          <div className="mt-2 text-[10px] text-white/55">
+            {session.membership.role === 'ADMIN' ? 'Administrador' : 'Participante'}
           </div>
-
-          <div className="flex gap-3">
-            <a
-              href="/liga"
-              className="rounded-xl border border-zinc-700 px-5 py-3 text-sm font-bold text-zinc-200 transition hover:bg-zinc-800"
-            >
-              Liga
-            </a>
-
-            <a
-              href="/palpites"
-              className="rounded-xl bg-green-500 px-5 py-3 text-sm font-bold text-zinc-950 transition hover:bg-green-400"
-            >
-              Palpites
-            </a>
+          <div className="mt-2 flex items-center justify-center gap-2 text-[9px] text-white/60">
+            <span className="rounded-full bg-white/8 px-2 py-1">Membros {league.members.length}</span>
+            <span className="rounded-full bg-white/8 px-2 py-1">{league.inviteCode}</span>
           </div>
         </div>
 
-        <div className="overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-900">
-          <table className="w-full border-collapse">
-            <thead className="bg-zinc-800/80 text-left text-sm text-zinc-300">
-              <tr>
-                <th className="px-5 py-4">#</th>
-                <th className="px-5 py-4">Participante</th>
-                <th className="px-5 py-4 text-center">Pontos</th>
-                <th className="px-5 py-4 text-center">Palpites</th>
-                <th className="px-5 py-4 text-center">Cravadas</th>
-                <th className="px-5 py-4 text-center">Vencedor</th>
-              </tr>
-            </thead>
+        <div className="mt-8 flex items-center justify-between gap-4 px-1">
+          <Link
+            href="/inicio"
+            className="flex h-11 min-w-[6.4rem] items-center justify-center rounded-[1.1rem] border-2 border-white bg-[#e1a81d] px-4 text-sm font-black text-white shadow-[0_10px_24px_rgba(0,0,0,0.2)]"
+          >
+            Pagina Inicial
+          </Link>
 
-            <tbody>
-              {ranking.map((item, index) => (
-                <tr key={item.userId} className="border-t border-zinc-800">
-                  <td className="px-5 py-4">
-                    <span className="flex h-9 w-9 items-center justify-center rounded-full bg-zinc-800 font-bold">
-                      {index + 1}
-                    </span>
-                  </td>
+          <Link
+            href="/liga"
+            className="flex h-11 min-w-[6.4rem] items-center justify-center rounded-[1.1rem] border-2 border-white bg-[#e1a81d] px-4 text-sm font-black text-white shadow-[0_10px_24px_rgba(0,0,0,0.2)]"
+          >
+            Informacoes da liga
+          </Link>
+        </div>
 
-                  <td className="px-5 py-4">
-                    <div className="font-bold">{item.name}</div>
-                    <div className="text-xs text-zinc-500">{item.role}</div>
-                  </td>
+        <div className="mt-8 overflow-hidden rounded-[2rem] border border-[#12338d] bg-[#020611] shadow-[0_18px_46px_rgba(0,0,0,0.36)]">
+          <div className="grid grid-cols-[64px_repeat(5,minmax(0,1fr))] bg-[#162658] text-center text-[9px] leading-tight text-white">
+            <div className="flex items-center justify-center border-r border-[#1b46c3] px-1 py-4">
+              <span>Classificacao</span>
+            </div>
+            <div className="flex items-center justify-center border-r border-[#1b46c3] px-1 py-4">
+              <span>Participantes</span>
+            </div>
+            <div className="flex items-center justify-center border-r border-[#1b46c3] px-1 py-4">
+              <span>
+                Pontuacao
+                <br />
+                Total
+              </span>
+            </div>
+            <div className="flex items-center justify-center border-r border-[#1b46c3] px-1 py-4">
+              <span>
+                Palpites
+                <br />
+                Feitos
+              </span>
+            </div>
+            <div className="flex items-center justify-center border-r border-[#1b46c3] px-1 py-4">
+              <span>
+                Palpites
+                <br />
+                Corretos
+              </span>
+            </div>
+            <div className="flex items-center justify-center px-1 py-4">
+              <span>
+                Time Escolhido
+                <br />
+                Vencedor
+              </span>
+            </div>
+          </div>
 
-                  <td className="px-5 py-4 text-center">
-                    <span className="rounded-full bg-green-500/10 px-4 py-2 font-bold text-green-300">
-                      {item.totalPoints}
-                    </span>
-                  </td>
-
-                  <td className="px-5 py-4 text-center text-zinc-300">
-                    {item.predictionsCount}
-                  </td>
-
-                  <td className="px-5 py-4 text-center text-zinc-300">
-                    {item.exactScores}
-                  </td>
-
-                  <td className="px-5 py-4 text-center text-zinc-300">
-                    {item.correctResults}
-                  </td>
-                </tr>
-              ))}
-
-              {ranking.length === 0 && (
-                <tr>
-                  <td colSpan={6} className="px-5 py-10 text-center text-zinc-500">
-                    Nenhum participante encontrado.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+          <div className="divide-y divide-[#12338d]">
+            {ranking.map((item, index) => (
+              <div
+                key={item.userId}
+                className="grid min-h-[4.05rem] grid-cols-[64px_repeat(5,minmax(0,1fr))] text-center text-[10px] text-white"
+              >
+                <div className="flex items-center justify-center border-r border-[#12338d] bg-[#162658] px-2 font-black">
+                  {index + 1}
+                </div>
+                <div className="flex items-center justify-center border-r border-[#12338d] px-1">
+                  <div className="max-w-full">
+                    <div className="truncate font-semibold">{item.name}</div>
+                    <div className="text-[9px] uppercase text-white/45">{item.role}</div>
+                  </div>
+                </div>
+                <div className="flex items-center justify-center border-r border-[#12338d] px-1">
+                  {item.totalPoints}
+                </div>
+                <div className="flex items-center justify-center border-r border-[#12338d] px-1">
+                  {item.predictionsCount}
+                </div>
+                <div className="flex items-center justify-center border-r border-[#12338d] px-1">
+                  {item.exactScores}
+                </div>
+                <div className="flex items-center justify-center px-1">
+                  {item.correctResults}
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       </section>
     </main>

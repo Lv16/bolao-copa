@@ -1,16 +1,20 @@
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { getCurrentSession } from "@/lib/auth";
+import { getCurrentUser } from "@/lib/auth";
 import { MatchPhase, MatchStatus } from "@prisma/client";
 import { formatPhase, formatStatus } from '@/lib/format';
 import { advanceKnockoutWinner, resolveSimpleKnockoutSlots } from '@/lib/knockout';
+import {
+  calculateGroupPredictionPoints,
+  calculateKnockoutPredictionPoints,
+} from '@/lib/prediction-scoring';
 
 async function updateResult(formData: FormData) {
   "use server";
-  const session = await getCurrentSession();
+  const user = await getCurrentUser();
 
-  if (!session || !session.user.isSystemAdmin) {
+  if (!user || !user.isSystemAdmin) {
     return;
   }
 
@@ -66,19 +70,8 @@ async function recalculatePredictions(matchId: string) {
   const realHome = match.homeScore;
   const realAway = match.awayScore;
 
-  const getResult = (home: number, away: number) => {
-    if (home > away) return "HOME";
-    if (home < away) return "AWAY";
-    return "DRAW";
-  };
-
-  const realResult = getResult(realHome, realAway);
-
   for (const prediction of match.predictions) {
     let points = 0;
-
-    const exactScore =
-      prediction.homeScore === realHome && prediction.awayScore === realAway;
 
     if (match.phase !== 'GROUP') {
       const realWinnerTeamId =
@@ -89,27 +82,21 @@ async function recalculatePredictions(matchId: string) {
           ? match.awayTeamId
           : null);
 
-      const predictedWinnerCorrect =
-        !!prediction.winnerTeamId &&
-        !!realWinnerTeamId &&
-        prediction.winnerTeamId === realWinnerTeamId;
-
-      if (exactScore && predictedWinnerCorrect) {
-        points = 3;
-      } else if (predictedWinnerCorrect) {
-        points = 2;
-      }
+      points = calculateKnockoutPredictionPoints({
+        realHomeScore: realHome,
+        realAwayScore: realAway,
+        predictedHomeScore: prediction.homeScore,
+        predictedAwayScore: prediction.awayScore,
+        realWinnerTeamId,
+        predictedWinnerTeamId: prediction.winnerTeamId,
+      });
     } else {
-      const predictedResult = getResult(
-        prediction.homeScore,
-        prediction.awayScore
-      );
-
-      if (exactScore) {
-        points = 3;
-      } else if (predictedResult === realResult) {
-        points = 2;
-      }
+      points = calculateGroupPredictionPoints({
+        realHomeScore: realHome,
+        realAwayScore: realAway,
+        predictedHomeScore: prediction.homeScore,
+        predictedAwayScore: prediction.awayScore,
+      });
     }
 
     await prisma.prediction.update({
@@ -124,13 +111,13 @@ async function recalculatePredictions(matchId: string) {
 }
 
 export default async function AdminResultadosPage() {
-  const session = await getCurrentSession();
+  const user = await getCurrentUser();
 
-  if (!session) {
+  if (!user) {
     redirect("/login");
   }
 
-  if (!session.user.isSystemAdmin) {
+  if (!user.isSystemAdmin) {
     return (
       <main className="min-h-screen bg-zinc-950 text-white">
         <section className="mx-auto max-w-6xl px-6 py-10">

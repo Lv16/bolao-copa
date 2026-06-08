@@ -42,15 +42,26 @@ async function upsertTeam(params: {
   slotCode: string | null;
 }) {
   if (params.slotCode) {
-    return prisma.team.upsert({
+    const existingTeam = await prisma.team.findUnique({
       where: {
         slotCode: params.slotCode,
       },
-      update: {
-        name: params.name,
-        groupName: params.groupName,
-      },
-      create: {
+    });
+
+    if (existingTeam) {
+      return prisma.team.update({
+        where: {
+          id: existingTeam.id,
+        },
+        data: {
+          name: params.name,
+          groupName: params.groupName,
+        },
+      });
+    }
+
+    return prisma.team.create({
+      data: {
         name: params.name,
         groupName: params.groupName,
         slotCode: params.slotCode,

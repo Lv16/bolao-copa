@@ -1,24 +1,36 @@
-import { prisma } from "@/lib/prisma";
-import { cookies } from "next/headers";
-import { redirect } from "next/navigation";
-import bcrypt from "bcryptjs";
+/* eslint-disable @next/next/no-img-element */
+import bcrypt from 'bcryptjs';
+import Link from 'next/link';
+import { cookies } from 'next/headers';
+import { redirect } from 'next/navigation';
+
+import copaImage from '@/app/img/copa.jpg';
+import logoImage from '@/app/img/logo.png';
+import { prisma } from '@/lib/prisma';
 
 type PageProps = {
   params: Promise<{
     inviteCode: string;
   }>;
+  searchParams: Promise<{
+    error?: string;
+  }>;
 };
 
 async function joinLeague(formData: FormData) {
-  "use server";
+  'use server';
 
-  const inviteCode = String(formData.get("inviteCode"));
-  const name = String(formData.get("name"));
-  const email = String(formData.get("email")).toLowerCase().trim();
-  const password = String(formData.get("password"));
+  const inviteCode = String(formData.get('inviteCode')).trim().toUpperCase();
+  const email = String(formData.get('email')).toLowerCase().trim();
+  const password = String(formData.get('password'));
+  const confirmPassword = String(formData.get('confirmPassword'));
 
-  if (!inviteCode || !name || !email || !password) {
-    return;
+  if (!inviteCode || !email || !password || !confirmPassword) {
+    redirect(`/entrar/${inviteCode || 'COPA26'}?error=missing_fields`);
+  }
+
+  if (password !== confirmPassword) {
+    redirect(`/entrar/${inviteCode}?error=password_mismatch`);
   }
 
   const league = await prisma.league.findUnique({
@@ -28,7 +40,7 @@ async function joinLeague(formData: FormData) {
   });
 
   if (!league) {
-    return;
+    redirect(`/entrar/${inviteCode}?error=league_not_found`);
   }
 
   let user = await prisma.user.findUnique({
@@ -42,11 +54,17 @@ async function joinLeague(formData: FormData) {
 
     user = await prisma.user.create({
       data: {
-        name,
+        name: email.split('@')[0],
         email,
         password: hashedPassword,
       },
     });
+  } else {
+    const validPassword = await bcrypt.compare(password, user.password);
+
+    if (!validPassword) {
+      redirect(`/entrar/${league.inviteCode}?error=invalid_credentials`);
+    }
   }
 
   await prisma.leagueMember.upsert({
@@ -60,31 +78,32 @@ async function joinLeague(formData: FormData) {
     create: {
       leagueId: league.id,
       userId: user.id,
-      role: "MEMBER",
+      role: 'MEMBER',
     },
   });
 
   const cookieStore = await cookies();
 
-  cookieStore.set("bolao_user_id", user.id, {
+  cookieStore.set('bolao_user_id', user.id, {
     httpOnly: true,
-    sameSite: "lax",
-    path: "/",
+    sameSite: 'lax',
+    path: '/',
     maxAge: 60 * 60 * 24 * 30,
   });
 
-  cookieStore.set("bolao_league_id", league.id, {
+  cookieStore.set('bolao_league_id', league.id, {
     httpOnly: true,
-    sameSite: "lax",
-    path: "/",
+    sameSite: 'lax',
+    path: '/',
     maxAge: 60 * 60 * 24 * 30,
   });
 
-  redirect("/liga");
+  redirect('/liga');
 }
 
-export default async function EntrarLigaPage({ params }: PageProps) {
+export default async function EntrarLigaPage({ params, searchParams }: PageProps) {
   const { inviteCode } = await params;
+  const { error } = await searchParams;
 
   const league = await prisma.league.findUnique({
     where: {
@@ -94,99 +113,153 @@ export default async function EntrarLigaPage({ params }: PageProps) {
 
   if (!league) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-zinc-950 px-6 text-white">
-        <div className="w-full max-w-md rounded-3xl border border-zinc-800 bg-zinc-900 p-8">
-          <h1 className="text-2xl font-bold">Liga não encontrada</h1>
-          <p className="mt-2 text-zinc-400">
-            Verifique se o link de convite está correto.
-          </p>
-
-          <a
-            href="/"
-            className="mt-6 inline-flex rounded-xl bg-green-500 px-5 py-3 text-sm font-bold text-zinc-950"
-          >
-            Voltar
-          </a>
-        </div>
+      <main className="min-h-screen bg-black px-6 text-white">
+        <section className="mx-auto flex min-h-screen max-w-md items-center justify-center">
+          <div className="w-full rounded-[2rem] bg-[#5c5c5f] px-5 pb-6 pt-7 text-center shadow-[0_28px_80px_rgba(0,0,0,0.55)]">
+            <h1 className="text-[2rem] font-black leading-none text-[#d8a11f]">
+              Liga nao encontrada
+            </h1>
+            <p className="mt-4 text-sm text-white/80">
+              Verifique se o link recebido esta correto.
+            </p>
+            <div className="pt-6">
+              <Link
+                href="/login"
+                className="mx-auto flex h-12 w-[10.5rem] items-center justify-center rounded-2xl border-2 border-white bg-[#e1a81d] px-8 text-lg font-black uppercase text-white shadow-[0_10px_24px_rgba(0,0,0,0.2)]"
+              >
+                Voltar
+              </Link>
+            </div>
+          </div>
+        </section>
       </main>
     );
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-zinc-950 px-6 text-white">
-      <div className="w-full max-w-md rounded-3xl border border-zinc-800 bg-zinc-900 p-8">
-        <p className="mb-2 text-sm font-semibold uppercase tracking-[0.3em] text-green-400">
-          Convite
-        </p>
+    <main className="auth-noise relative min-h-screen overflow-hidden bg-black text-white">
+      <div className="auth-grid pointer-events-none absolute inset-0 opacity-10" />
 
-        <h1 className="text-3xl font-bold">Entrar na liga</h1>
+      <div className="pointer-events-none absolute inset-0">
+        <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,0.92)_0%,rgba(0,0,0,0.72)_32%,rgba(0,0,0,0.76)_72%,rgba(0,0,0,0.96)_100%)]" />
 
-        <p className="mt-2 text-zinc-400">
-          Você foi convidado para participar do bolão:
-        </p>
-
-        <div className="mt-5 rounded-2xl bg-green-500/10 p-4 text-green-300">
-          <strong>{league.name}</strong>
-          <div className="mt-1 text-sm">Código: {league.inviteCode}</div>
+        <div className="absolute inset-x-0 top-[34%] -translate-y-1/2">
+          <img
+            src={copaImage.src}
+            alt="Bandeiras das selecoes ao fundo"
+            className="auth-background-flags mx-auto w-[130vw] max-w-none sm:w-[110vw] lg:w-[72rem]"
+          />
         </div>
-
-        <form action={joinLeague} className="mt-6 grid gap-4">
-          <input type="hidden" name="inviteCode" value={league.inviteCode} />
-
-          <div>
-            <label className="mb-2 block text-sm font-semibold text-zinc-300">
-              Nome
-            </label>
-            <input
-              name="name"
-              type="text"
-              placeholder="Seu nome"
-              className="w-full rounded-xl border border-zinc-700 bg-zinc-950 px-4 py-3 outline-none focus:border-green-400"
-              required
-            />
-          </div>
-
-          <div>
-            <label className="mb-2 block text-sm font-semibold text-zinc-300">
-              E-mail
-            </label>
-            <input
-              name="email"
-              type="email"
-              placeholder="seuemail@email.com"
-              className="w-full rounded-xl border border-zinc-700 bg-zinc-950 px-4 py-3 outline-none focus:border-green-400"
-              required
-            />
-          </div>
-
-          <div>
-            <label className="mb-2 block text-sm font-semibold text-zinc-300">
-              Senha
-            </label>
-            <input
-              name="password"
-              type="password"
-              placeholder="Crie uma senha"
-              className="w-full rounded-xl border border-zinc-700 bg-zinc-950 px-4 py-3 outline-none focus:border-green-400"
-              required
-            />
-          </div>
-
-          <button
-            type="submit"
-            className="mt-2 rounded-xl bg-green-500 px-5 py-3 text-sm font-bold text-zinc-950 transition hover:bg-green-400"
-          >
-            Entrar na Liga
-          </button>
-        </form>
-
-        <a
-          href="/"
-          className="mt-5 inline-flex text-sm text-zinc-400 hover:text-white"
-        >
-          Voltar para home
-        </a>
       </div>
+
+      <section className="relative mx-auto flex min-h-screen w-full max-w-md flex-col justify-end px-4 pb-8 pt-8 sm:max-w-lg sm:px-6 lg:max-w-5xl lg:justify-center lg:px-10">
+        <div className="auth-modal-enter lg:mx-auto lg:w-[25rem]">
+          <div className="mb-5 flex justify-center">
+            <img
+              src={logoImage.src}
+              alt="Logo Bolao Copa 2026"
+              className="w-44 max-w-[72vw] sm:w-52"
+            />
+          </div>
+
+          <div className="rounded-[2rem] bg-[#5c5c5f] px-5 pb-6 pt-7 shadow-[0_28px_80px_rgba(0,0,0,0.55)]">
+            <h2 className="text-center text-[2.1rem] font-black leading-none text-[#d8a11f]">
+              Entrar na Liga
+            </h2>
+
+            <div className="mt-5 rounded-[1.4rem] border border-[#b28b34]/40 bg-black/10 px-4 py-4 text-center text-sm text-white/85">
+              Ao continuar, voce entrara automaticamente na liga{' '}
+              <span className="font-black text-white">{league.name}</span> por meio deste link.
+              <div className="mt-2 text-xs text-white/65">Codigo: {league.inviteCode}</div>
+            </div>
+
+            {error === 'invalid_credentials' && (
+              <div className="mt-5 rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+                Este e-mail ja existe. Use a senha correta para entrar nessa conta.
+              </div>
+            )}
+
+            {error === 'missing_fields' && (
+              <div className="mt-5 rounded-2xl border border-yellow-500/30 bg-yellow-500/10 px-4 py-3 text-sm text-yellow-100">
+                Preencha todos os campos para continuar.
+              </div>
+            )}
+
+            {error === 'password_mismatch' && (
+              <div className="mt-5 rounded-2xl border border-yellow-500/30 bg-yellow-500/10 px-4 py-3 text-sm text-yellow-100">
+                As senhas nao conferem.
+              </div>
+            )}
+
+            <form action={joinLeague} className="mt-8 grid gap-6">
+              <input type="hidden" name="inviteCode" value={league.inviteCode} />
+
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-[#262626]">
+                  Email
+                </label>
+                <input
+                  name="email"
+                  type="email"
+                  className="h-12 w-full rounded-full border border-[#d6d6d6] bg-white px-4 text-base text-black outline-none"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-[#262626]">
+                  Senha
+                </label>
+                <div className="relative">
+                  <input
+                    name="password"
+                    type="password"
+                    className="h-12 w-full rounded-full border border-[#d6d6d6] bg-white px-4 pr-12 text-base text-black outline-none"
+                    required
+                  />
+                  <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[#8a8a8a]">
+                    ◉
+                  </span>
+                </div>
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-[#262626]">
+                  Confirme senha
+                </label>
+                <div className="relative">
+                  <input
+                    name="confirmPassword"
+                    type="password"
+                    className="h-12 w-full rounded-full border border-[#d6d6d6] bg-white px-4 pr-12 text-base text-black outline-none"
+                    required
+                  />
+                  <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[#8a8a8a]">
+                    ◉
+                  </span>
+                </div>
+              </div>
+
+              <div className="my-1 h-px bg-[#b28b34]/60" />
+
+              <div className="pt-1">
+                <button
+                  type="submit"
+                  className="mx-auto flex h-12 w-[10.5rem] items-center justify-center rounded-2xl border-2 border-white bg-[#e1a81d] px-8 text-lg font-black uppercase text-white shadow-[0_10px_24px_rgba(0,0,0,0.2)]"
+                >
+                  Entrar
+                </button>
+              </div>
+            </form>
+
+            <div className="pt-5 text-center text-sm">
+              <Link href="/login" className="text-white/70 transition hover:text-white">
+                Voltar para login
+              </Link>
+            </div>
+          </div>
+        </div>
+      </section>
     </main>
   );
 }

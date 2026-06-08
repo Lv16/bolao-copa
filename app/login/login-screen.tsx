@@ -1,84 +1,15 @@
 /* eslint-disable @next/next/no-img-element */
-import bcrypt from 'bcryptjs';
 import Link from 'next/link';
-import { cookies } from 'next/headers';
-import { redirect } from 'next/navigation';
 
 import copaImage from '@/app/img/copa.jpg';
 import logoImage from '@/app/img/logo.png';
-import { prisma } from '@/lib/prisma';
 
-type CadastroPageProps = {
-  searchParams: Promise<{
-    error?: string;
-  }>;
+type LoginScreenProps = {
+  error?: string;
+  loginAction: (formData: FormData) => void | Promise<void>;
 };
 
-async function register(formData: FormData) {
-  'use server';
-
-  const email = String(formData.get('email')).toLowerCase().trim();
-  const password = String(formData.get('password'));
-  const confirmPassword = String(formData.get('confirmPassword'));
-
-  if (!email || !password || !confirmPassword) {
-    redirect('/cadastro?error=missing_fields');
-  }
-
-  if (password !== confirmPassword) {
-    redirect('/cadastro?error=password_mismatch');
-  }
-
-  const existingUser = await prisma.user.findUnique({
-    where: {
-      email,
-    },
-  });
-
-  if (existingUser) {
-    const validPassword = await bcrypt.compare(password, existingUser.password);
-
-    if (!validPassword) {
-      redirect('/cadastro?error=email_in_use');
-    }
-
-    const cookieStore = await cookies();
-
-    cookieStore.set('bolao_user_id', existingUser.id, {
-      httpOnly: true,
-      sameSite: 'lax',
-      path: '/',
-      maxAge: 60 * 60 * 24 * 30,
-    });
-
-    redirect('/minhas-ligas');
-  }
-
-  const hashedPassword = await bcrypt.hash(password, 10);
-
-  const user = await prisma.user.create({
-    data: {
-      name: email.split('@')[0],
-      email,
-      password: hashedPassword,
-    },
-  });
-
-  const cookieStore = await cookies();
-
-  cookieStore.set('bolao_user_id', user.id, {
-    httpOnly: true,
-    sameSite: 'lax',
-    path: '/',
-    maxAge: 60 * 60 * 24 * 30,
-  });
-
-  redirect('/minhas-ligas');
-}
-
-export default async function CadastroPage({ searchParams }: CadastroPageProps) {
-  const { error } = await searchParams;
-
+export function LoginScreen({ error, loginAction }: LoginScreenProps) {
   return (
     <main className="auth-noise relative min-h-screen overflow-hidden bg-black text-white">
       <div className="auth-grid pointer-events-none absolute inset-0 opacity-10" />
@@ -107,28 +38,22 @@ export default async function CadastroPage({ searchParams }: CadastroPageProps) 
 
           <div className="rounded-[2rem] bg-[#5c5c5f] px-5 pb-6 pt-7 shadow-[0_28px_80px_rgba(0,0,0,0.55)]">
             <h2 className="text-center text-[2.1rem] font-black leading-none text-[#d8a11f]">
-              Criar Conta
+              Acesse sua Conta
             </h2>
 
-            {error === 'email_in_use' && (
+            {error === 'invalid_credentials' && (
               <div className="mt-5 rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
-                Este e-mail ja existe. Use a senha correta para entrar nessa conta.
+                E-mail ou senha invalidos.
               </div>
             )}
 
             {error === 'missing_fields' && (
               <div className="mt-5 rounded-2xl border border-yellow-500/30 bg-yellow-500/10 px-4 py-3 text-sm text-yellow-100">
-                Preencha todos os campos para continuar.
+                Preencha e-mail e senha para entrar.
               </div>
             )}
 
-            {error === 'password_mismatch' && (
-              <div className="mt-5 rounded-2xl border border-yellow-500/30 bg-yellow-500/10 px-4 py-3 text-sm text-yellow-100">
-                As senhas nao conferem.
-              </div>
-            )}
-
-            <form action={register} className="mt-8 grid gap-6">
+            <form action={loginAction} className="mt-8 grid gap-6">
               <div>
                 <label className="mb-2 block text-sm font-semibold text-[#262626]">
                   Email
@@ -156,40 +81,29 @@ export default async function CadastroPage({ searchParams }: CadastroPageProps) 
                     ◉
                   </span>
                 </div>
-              </div>
-
-              <div>
-                <label className="mb-2 block text-sm font-semibold text-[#262626]">
-                  Confirme senha
-                </label>
-                <div className="relative">
-                  <input
-                    name="confirmPassword"
-                    type="password"
-                    className="h-12 w-full rounded-full border border-[#d6d6d6] bg-white px-4 pr-12 text-base text-black outline-none"
-                    required
-                  />
-                  <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[#8a8a8a]">
-                    ◉
-                  </span>
+                <div className="mt-2 text-right text-[11px] text-[#2c2c2c]">
+                  Esqueci minha senha
                 </div>
               </div>
-
-              <div className="my-1 h-px bg-[#b28b34]/60" />
 
               <div className="pt-1">
                 <button
                   type="submit"
                   className="mx-auto flex h-12 w-[10.5rem] items-center justify-center rounded-2xl border-2 border-white bg-[#e1a81d] px-8 text-lg font-black uppercase text-white shadow-[0_10px_24px_rgba(0,0,0,0.2)]"
                 >
-                  Cadastrar
+                  Entrar
                 </button>
               </div>
             </form>
 
-            <div className="pt-5 text-center text-sm">
-              <Link href="/login" className="text-white/70 transition hover:text-white">
-                Ja tenho conta
+            <div className="my-4 h-px bg-[#b28b34]/60" />
+
+            <div className="pt-2">
+              <Link
+                href="/cadastro"
+                className="mx-auto flex h-12 w-[10.5rem] items-center justify-center rounded-2xl border-2 border-white bg-[#e1a81d] px-8 text-lg font-black uppercase text-white shadow-[0_10px_24px_rgba(0,0,0,0.2)]"
+              >
+                Cadastrar
               </Link>
             </div>
           </div>

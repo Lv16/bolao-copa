@@ -1,11 +1,17 @@
-import { prisma } from "@/lib/prisma";
-import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
-import { cookies } from "next/headers";
+/* eslint-disable @next/next/no-img-element */
+import Link from 'next/link';
 import { MatchPhase } from '@prisma/client';
-import { formatPhase, formatStatus, isMatchPredictionLocked } from '@/lib/format';
+import { cookies } from 'next/headers';
+import { revalidatePath } from 'next/cache';
+import { redirect } from 'next/navigation';
 
-async function savePredictions(formData: FormData) {
+import logoImage from '@/app/img/logo.png';
+import { getFlagUrl } from '@/lib/flags';
+import { formatPhase, isMatchPredictionLocked } from '@/lib/format';
+import { prisma } from '@/lib/prisma';
+import { MatchCard } from './match-card';
+
+async function savePrediction(formData: FormData) {
   'use server';
 
   const cookieStore = await cookies();
@@ -15,6 +21,12 @@ async function savePredictions(formData: FormData) {
 
   if (!userId || !leagueId) {
     redirect('/entrar/COPA26');
+  }
+
+  const matchId = String(formData.get('matchId'));
+
+  if (!matchId) {
+    return;
   }
 
   const setting = await prisma.appSetting.findUnique({
@@ -27,7 +39,10 @@ async function savePredictions(formData: FormData) {
     return;
   }
 
-  const matches = await prisma.match.findMany({
+  const match = await prisma.match.findUnique({
+    where: {
+      id: matchId,
+    },
     select: {
       id: true,
       startsAt: true,
@@ -35,59 +50,55 @@ async function savePredictions(formData: FormData) {
     },
   });
 
-  for (const match of matches) {
-    const matchLocked = isMatchPredictionLocked({
-      startsAt: match.startsAt,
-      status: match.status,
-      globalLocked: false,
-    });
+  if (!match) {
+    return;
+  }
 
-    if (matchLocked) {
-      continue;
-    }
-    const homeValue = formData.get(`homeScore_${match.id}`);
-    const awayValue = formData.get(`awayScore_${match.id}`);
+  const matchLocked = isMatchPredictionLocked({
+    startsAt: match.startsAt,
+    status: match.status,
+    globalLocked: false,
+  });
 
-    if (homeValue === null || awayValue === null) {
-      continue;
-    }
+  if (matchLocked) {
+    return;
+  }
 
-    const homeScore = Number(homeValue);
-    const awayScore = Number(awayValue);
+  const homeScore = Number(formData.get('homeScore'));
+  const awayScore = Number(formData.get('awayScore'));
 
-    if (Number.isNaN(homeScore) || Number.isNaN(awayScore)) {
-      continue;
-    }
+  if (Number.isNaN(homeScore) || Number.isNaN(awayScore)) {
+    return;
+  }
 
-    const winnerTeamIdValue = formData.get(`winnerTeamId_${match.id}`);
-    const winnerTeamId =
-      typeof winnerTeamIdValue === 'string' && winnerTeamIdValue
-        ? winnerTeamIdValue
-        : null;
+  const winnerTeamIdValue = formData.get('winnerTeamId');
+  const winnerTeamId =
+    typeof winnerTeamIdValue === 'string' && winnerTeamIdValue
+      ? winnerTeamIdValue
+      : null;
 
-    await prisma.prediction.upsert({
-      where: {
-        leagueId_userId_matchId: {
-          leagueId,
-          userId,
-          matchId: match.id,
-        },
-      },
-      update: {
-        homeScore,
-        awayScore,
-        winnerTeamId,
-      },
-      create: {
+  await prisma.prediction.upsert({
+    where: {
+      leagueId_userId_matchId: {
         leagueId,
         userId,
-        matchId: match.id,
-        homeScore,
-        awayScore,
-        winnerTeamId,
+        matchId,
       },
-    });
-  }
+    },
+    update: {
+      homeScore,
+      awayScore,
+      winnerTeamId,
+    },
+    create: {
+      leagueId,
+      userId,
+      matchId,
+      homeScore,
+      awayScore,
+      winnerTeamId,
+    },
+  });
 
   revalidatePath('/palpites');
   redirect('/palpites');
@@ -96,11 +107,11 @@ async function savePredictions(formData: FormData) {
 export default async function PalpitesPage() {
   const cookieStore = await cookies();
 
-  const userId = cookieStore.get("bolao_user_id")?.value;
-  const leagueId = cookieStore.get("bolao_league_id")?.value;
+  const userId = cookieStore.get('bolao_user_id')?.value;
+  const leagueId = cookieStore.get('bolao_league_id')?.value;
 
   if (!userId || !leagueId) {
-    redirect("/entrar/COPA26");
+    redirect('/entrar/COPA26');
   }
 
   const user = await prisma.user.findUnique({
@@ -117,47 +128,27 @@ export default async function PalpitesPage() {
 
   const setting = await prisma.appSetting.findUnique({
     where: {
-      key: "predictions_locked",
+      key: 'predictions_locked',
     },
   });
 
-  const globalLocked = setting?.value === "true";
+  const globalLocked = setting?.value === 'true';
 
   const matches = await prisma.match.findMany({
     include: {
       homeTeam: true,
       awayTeam: true,
-      predictions:
-        user && league
-          ? {
-              where: {
-                userId: user.id,
-                leagueId: league.id,
-              },
-            }
-          : true,
+      predictions: {
+        where: {
+          userId,
+          leagueId,
+        },
+      },
     },
     orderBy: {
-      number: "asc",
+      number: 'asc',
     },
   });
-
-  const totalMatches = matches.length;
-
-  const filledPredictions = matches.filter((match) => {
-    const prediction = match.predictions[0];
-
-    return (
-      prediction &&
-      prediction.homeScore !== null &&
-      prediction.awayScore !== null
-    );
-  }).length;
-
-  const pendingPredictions = totalMatches - filledPredictions;
-
-  const progressPercentage =
-    totalMatches > 0 ? Math.round((filledPredictions / totalMatches) * 100) : 0;
 
   const matchesByPhaseAndGroup = matches.reduce((acc, match) => {
     const phase = match.phase;
@@ -174,7 +165,7 @@ export default async function PalpitesPage() {
     acc[phase][group].push(match);
 
     return acc;
-  }, {} as Record<string, Record<string, typeof matches[number][]>>);
+  }, {} as Record<string, Record<string, typeof matches>>);
 
   const phaseOrder: MatchPhase[] = [
     'GROUP',
@@ -187,70 +178,54 @@ export default async function PalpitesPage() {
   ];
 
   return (
-    <main className="min-h-screen bg-zinc-950 text-white">
-      <section className="mx-auto max-w-6xl px-6 py-10">
-        <div className="mb-8 flex items-center justify-between gap-4">
-          <div>
-            <p className="mb-2 text-sm font-semibold uppercase tracking-[0.3em] text-green-400">
-              Palpites
-            </p>
+    <main className="min-h-screen bg-black text-white">
+      <section className="mx-auto flex min-h-screen w-full max-w-md flex-col px-4 pb-12 pt-6 sm:max-w-lg sm:px-6">
+        <div className="mb-6 flex justify-center">
+          <img
+            src={logoImage.src}
+            alt="Logo Bolao Copa 2026"
+            className="w-44 max-w-[72vw] sm:w-52"
+          />
+        </div>
 
-            <h1 className="text-4xl font-bold">Meus palpites</h1>
-
-            <p className="mt-2 text-zinc-400">
-              Preencha seus placares antes do bloqueio geral da Copa.
-            </p>
-
-            <div className="mt-4 inline-flex rounded-full bg-zinc-900 px-4 py-2 text-sm text-zinc-300">
-              Liga: {league?.name ?? "Não encontrada"} — Usuário:{" "}
-              {user?.name ?? "Não encontrado"}
-            </div>
-
-            {globalLocked && (
-              <div className="mt-3 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
-                Os palpites estão bloqueados.
-              </div>
-            )}
-            
-            <div className="mt-4 rounded-xl border border-zinc-800 bg-zinc-900 p-4 text-sm text-zinc-300">
-              <h3 className="font-bold mb-2">Progresso dos palpites</h3>
-              <p className="mb-3">{filledPredictions} de {totalMatches} jogos preenchidos.</p>
-
-              <div className="mb-2 flex items-center gap-4">
-                <div className="w-full bg-zinc-800 rounded-full h-3 overflow-hidden">
-                  <div style={{ width: `${progressPercentage}%` }} className="h-3 bg-green-500" />
-                </div>
-                <div className="text-sm font-bold">{progressPercentage}%</div>
-              </div>
-
-              <p className="text-sm text-zinc-400">
-                {pendingPredictions === 0
-                  ? 'Todos os palpites foram preenchidos.'
-                  : `Faltam ${pendingPredictions} palpite(s) para completar todos os jogos.`}
-              </p>
-            </div>
-          </div>
-
-          <div className="flex gap-3">
-            <a
-              href="/"
-              className="rounded-xl border border-zinc-700 px-5 py-3 text-sm font-bold text-zinc-200 transition hover:bg-zinc-800"
-            >
-              Home
-            </a>
-
-            <a
-              href="/admin/resultados"
-              className="rounded-xl bg-green-500 px-5 py-3 text-sm font-bold text-zinc-950 transition hover:bg-green-400"
-            >
-              Admin
-            </a>
+        <div className="mx-auto w-full max-w-[15.6rem] rounded-[2rem] border border-[#12338d] bg-[#050812] px-5 py-4 text-center shadow-[0_12px_30px_rgba(0,0,0,0.32)]">
+          <h1 className="text-[1.1rem] font-black uppercase leading-tight text-white">
+            Palpite
+          </h1>
+          <div className="mt-3 space-y-1 text-left text-[11px] leading-relaxed text-white/70">
+            <p>1- Escolha quantos gols cada time fara;</p>
+            <p>2- Confirme sua escolha;</p>
+            <p>3- Acompanhe a classificacao da Liga.</p>
           </div>
         </div>
 
-        <form action={savePredictions} className="grid gap-4">
+        <div className="mt-8 flex items-center justify-between gap-4 px-1">
+          <Link
+            href="/inicio"
+            className="flex h-11 min-w-[6.6rem] items-center justify-center rounded-[1.1rem] border-2 border-white bg-[#e1a81d] px-4 text-sm font-black leading-tight text-white shadow-[0_10px_24px_rgba(0,0,0,0.2)]"
+          >
+            Pagina inicial
+          </Link>
+
+          <Link
+            href="/liga"
+            className="flex h-11 min-w-[6.6rem] items-center justify-center rounded-[1.1rem] border-2 border-white bg-[#e1a81d] px-4 text-center text-sm font-black leading-tight text-white shadow-[0_10px_24px_rgba(0,0,0,0.2)]"
+          >
+            Informacoes
+            <br />
+            da Liga
+          </Link>
+        </div>
+
+        {globalLocked && (
+          <div className="mt-6 rounded-[1.4rem] border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+            Os palpites estao bloqueados no momento.
+          </div>
+        )}
+
+        <div className="mt-8 space-y-8">
           {phaseOrder.map((phase) => {
-            const phaseGroups = matchesByPhaseAndGroup[phase as string];
+            const phaseGroups = matchesByPhaseAndGroup[phase];
 
             if (!phaseGroups) {
               return null;
@@ -258,147 +233,73 @@ export default async function PalpitesPage() {
 
             return (
               <div key={phase}>
-                <div className="mb-3">
-                  <h3 className="text-xl font-bold">{formatPhase(phase as MatchPhase)}</h3>
-                  <p className="text-sm text-zinc-400">Preencha os placares dos jogos desta fase.</p>
+                <div className="mb-4">
+                  <h2 className="text-lg font-black text-white">{formatPhase(phase)}</h2>
                 </div>
 
-                {Object.entries(phaseGroups).map(([groupName, groupMatches]) => (
-                  <div key={groupName} className="mb-4">
-                    <div className="mb-3 flex items-center justify-between gap-4">
-                      <div>
-                        <h4 className="text-lg font-bold">
-                          {phase === 'GROUP' ? `Grupo ${groupName}` : groupName}
-                        </h4>
-
-                        <p className="text-sm text-zinc-400">{groupMatches.length} jogos</p>
+                <div className="space-y-5">
+                  {Object.entries(phaseGroups).map(([groupName, groupMatches]) => (
+                    <div key={`${phase}-${groupName}`} className="space-y-4">
+                      <div className="inline-flex rounded-full border border-[#e1a81d] px-3 py-1 text-sm font-bold text-[#e1a81d]">
+                        {phase === 'GROUP' ? `Grupo ${groupName}` : groupName}
                       </div>
-                    </div>
 
-                    {groupMatches.map((match) => {
-                      const prediction = match.predictions[0];
+                      {groupMatches.map((match) => {
+                        const prediction = match.predictions[0];
+                        const homeName = match.homeTeam?.name ?? match.homeSlot ?? 'A definir';
+                        const awayName = match.awayTeam?.name ?? match.awaySlot ?? 'A definir';
+                        const homeFlag = getFlagUrl(match.homeTeam?.name);
+                        const awayFlag = getFlagUrl(match.awayTeam?.name);
 
-                      const matchLocked = isMatchPredictionLocked({
-                        startsAt: match.startsAt,
-                        status: match.status,
-                        globalLocked,
-                      });
+                        const matchLocked = isMatchPredictionLocked({
+                          startsAt: match.startsAt,
+                          status: match.status,
+                          globalLocked,
+                        });
 
-                      return (
-                        <div
-                          key={match.id}
-                          className="rounded-2xl border border-zinc-800 bg-zinc-900 p-5 mb-3"
-                        >
-                          <div className="mb-4 flex items-center justify-between gap-4">
-                            <div>
-                              <span className="rounded-full bg-zinc-800 px-3 py-1 text-xs font-semibold text-zinc-300">
-                                Jogo {match.number}
-                              </span>
-
-                              {match.groupName && (
-                                <span className="ml-2 rounded-full bg-blue-500/10 px-3 py-1 text-xs font-semibold text-blue-300">
-                                  {phase === 'GROUP' ? `Grupo ${match.groupName}` : match.groupName}
-                                </span>
-                              )}
-                            </div>
-
-                            <div className="text-right text-xs text-zinc-500">
-                              <div>Status: {formatStatus(match.status)}</div>
-                              {match.startsAt && (
-                                <div className="text-xs text-zinc-400">
-                                  {match.startsAt.toLocaleString('pt-BR', {
+                        return (
+                          <MatchCard
+                            key={match.id}
+                            action={savePrediction}
+                            matchId={match.id}
+                            matchNumber={match.number}
+                            startsAtLabel={
+                              match.startsAt
+                                ? match.startsAt.toLocaleString('pt-BR', {
                                     dateStyle: 'short',
                                     timeStyle: 'short',
-                                  })}
-                                </div>
-                              )}
-
-                              {matchLocked ? (
-                                <div className="mt-1 text-red-300">Palpite bloqueado</div>
-                              ) : prediction ? (
-                                <div className="mt-1 text-green-300">
-                                  Palpite salvo — {prediction.points} pts
-                                </div>
-                              ) : (
-                                <div className="mt-1 text-zinc-400">Pendente</div>
-                              )}
-                            </div>
-                          </div>
-
-                          <div className="grid grid-cols-[1fr_90px_40px_90px_1fr_auto] items-center gap-3">
-                            <div className="text-right">
-                              <p className="font-bold">
-                                {match.homeTeam?.name ?? match.homeSlot}
-                              </p>
-                              <p className="text-xs text-zinc-500">{match.homeSlot}</p>
-                            </div>
-
-                            <input
-                              name={`homeScore_${match.id}`}
-                              type="number"
-                              min="0"
-                              defaultValue={prediction?.homeScore ?? ""}
-                              disabled={matchLocked}
-                              className="rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-3 text-center font-bold outline-none focus:border-green-400 disabled:cursor-not-allowed disabled:opacity-50"
-                            />
-
-                            <span className="text-center font-bold text-zinc-500">x</span>
-
-                            <input
-                              name={`awayScore_${match.id}`}
-                              type="number"
-                              min="0"
-                              defaultValue={prediction?.awayScore ?? ""}
-                              disabled={matchLocked}
-                              className="rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-3 text-center font-bold outline-none focus:border-green-400 disabled:cursor-not-allowed disabled:opacity-50"
-                            />
-
-                            <div>
-                              <p className="font-bold">
-                                {match.awayTeam?.name ?? match.awaySlot}
-                              </p>
-                              <p className="text-xs text-zinc-500">{match.awaySlot}</p>
-                            </div>
-
-                            <div />
-                            {match.phase !== 'GROUP' && (
-                              <div className="flex flex-col">
-                                <label className="text-xs text-zinc-400 mb-1">Classificado</label>
-                                <select
-                                  name={`winnerTeamId_${match.id}`}
-                                  defaultValue={prediction?.winnerTeamId ?? ''}
-                                  disabled={matchLocked}
-                                  className="rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm outline-none disabled:cursor-not-allowed disabled:opacity-50"
-                                >
-                                  <option value="">—</option>
-                                  {match.homeTeam && (
-                                    <option value={match.homeTeam.id}>{match.homeTeam.name}</option>
-                                  )}
-                                  {match.awayTeam && (
-                                    <option value={match.awayTeam.id}>{match.awayTeam.name}</option>
-                                  )}
-                                </select>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                ))}
+                                  })
+                                : null
+                            }
+                            phase={match.phase}
+                            homeName={homeName}
+                            awayName={awayName}
+                            homeFlag={homeFlag}
+                            awayFlag={awayFlag}
+                            homeTeamId={match.homeTeam?.id}
+                            awayTeamId={match.awayTeam?.id}
+                            finalHomeScore={match.homeScore ?? '-'}
+                            finalAwayScore={match.awayScore ?? '-'}
+                            predictionHomeScore={prediction?.homeScore}
+                            predictionAwayScore={prediction?.awayScore}
+                            predictionWinnerTeamId={prediction?.winnerTeamId}
+                            predictionPoints={prediction?.points}
+                            matchLocked={matchLocked}
+                            globalLocked={globalLocked}
+                          />
+                        );
+                      })}
+                    </div>
+                  ))}
+                </div>
               </div>
             );
           })}
-          <div className="mt-6">
-            <button
-              type="submit"
-              disabled={globalLocked}
-              className="rounded-xl bg-green-500 px-5 py-3 text-sm font-bold text-zinc-950 transition hover:bg-green-400 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              Salvar todos os palpites — {filledPredictions}/{totalMatches}
-            </button>
-          </div>
-        </form>
+        </div>
+
+        <div className="mt-8 text-center text-xs text-white/45">
+          Liga: {league?.name ?? 'Nao encontrada'} • Usuario: {user?.name ?? 'Nao encontrado'}
+        </div>
       </section>
     </main>
   );

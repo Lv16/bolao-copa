@@ -1,7 +1,7 @@
 import { prisma } from '@/lib/prisma';
 import { calculateGroupStandings, getQualifiedSlots } from '@/lib/standings';
 
-function isSimpleQualifiedSlot(slot: string | null) {
+function isSimpleQualifiedSlot(slot: string | null): slot is string {
   if (!slot) return false;
 
   return /^[123][A-L]$/.test(slot);
@@ -38,16 +38,18 @@ export async function resolveSimpleKnockoutSlots() {
       awayTeamId?: string | null;
     } = {};
 
-    if (isSimpleQualifiedSlot(match.homeSlot)) {
-      const slot = qualifiedSlots[match.homeSlot];
+    const homeSlot = match.homeSlot;
+    if (isSimpleQualifiedSlot(homeSlot)) {
+      const slot = qualifiedSlots[homeSlot];
 
       if (slot) {
         data.homeTeamId = slot.teamId;
       }
     }
 
-    if (isSimpleQualifiedSlot(match.awaySlot)) {
-      const slot = qualifiedSlots[match.awaySlot];
+    const awaySlot = match.awaySlot;
+    if (isSimpleQualifiedSlot(awaySlot)) {
+      const slot = qualifiedSlots[awaySlot];
 
       if (slot) {
         data.awayTeamId = slot.teamId;
@@ -65,7 +67,7 @@ export async function resolveSimpleKnockoutSlots() {
   }
 }
 
-function getWinnerAndLoser(match: {
+export function getWinnerAndLoser(match: {
   homeTeamId: string | null;
   awayTeamId: string | null;
   winnerTeamId: string | null;

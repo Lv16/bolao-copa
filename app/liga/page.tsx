@@ -1,13 +1,82 @@
-import { prisma } from "@/lib/prisma";
-import { getCurrentSession } from "@/lib/auth";
-import { redirect } from "next/navigation";
-import { headers } from "next/headers";
+/* eslint-disable @next/next/no-img-element */
+import Link from 'next/link';
+import { headers } from 'next/headers';
+import { redirect } from 'next/navigation';
+
+import logoImage from '@/app/img/logo.png';
+import { getCurrentSession } from '@/lib/auth';
+import { prisma } from '@/lib/prisma';
+import { InviteLink } from './invite-link';
+
+function ClassificationIcon() {
+  return (
+    <svg viewBox="0 0 64 64" className="h-14 w-14 text-[#e1a81d]" aria-hidden="true">
+      <g fill="currentColor" stroke="#fff4c9" strokeWidth="1.5">
+        <circle cx="20" cy="14" r="6" />
+        <circle cx="44" cy="14" r="6" />
+        <circle cx="32" cy="6" r="6" />
+        <path d="M12 26c0-5 4-9 8-9s8 4 8 9v10H12V26Z" />
+        <path d="M36 26c0-5 4-9 8-9s8 4 8 9v10H36V26Z" />
+        <path d="M22 18c0-6 5-10 10-10s10 4 10 10v18H22V18Z" />
+      </g>
+    </svg>
+  );
+}
+
+function PredictionIcon() {
+  return (
+    <svg viewBox="0 0 64 64" className="h-14 w-14 text-[#e1a81d]" aria-hidden="true">
+      <g fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="4">
+        <path d="M32 10a22 22 0 1 0 22 22" />
+        <path d="M32 20a12 12 0 1 0 12 12" />
+        <circle cx="32" cy="32" r="4" fill="currentColor" stroke="none" />
+        <path d="M32 32 46 18" />
+        <path d="m44 10 10 2-2 10" />
+      </g>
+    </svg>
+  );
+}
+
+function MembersIcon() {
+  return (
+    <svg viewBox="0 0 64 64" className="h-14 w-14 text-[#e1a81d]" aria-hidden="true">
+      <g fill="currentColor" stroke="#fff4c9" strokeWidth="1.5">
+        <circle cx="20" cy="22" r="7" />
+        <circle cx="44" cy="22" r="7" />
+        <circle cx="32" cy="16" r="8" />
+        <path d="M10 44c0-7 5-12 12-12s12 5 12 12v6H10v-6Z" />
+        <path d="M30 42c0-8 6-14 14-14s14 6 14 14v8H30v-8Z" />
+        <path d="M18 40c0-8 6-14 14-14s14 6 14 14v10H18V40Z" />
+      </g>
+    </svg>
+  );
+}
+
+type ActionCardProps = {
+  href: string;
+  icon: React.ReactNode;
+  label: string;
+};
+
+function ActionCard({ href, icon, label }: ActionCardProps) {
+  return (
+    <Link
+      href={href}
+      className="flex min-h-[6.7rem] flex-col items-center justify-center rounded-[1.15rem] border border-white/45 bg-black px-4 py-6 text-center shadow-[0_10px_24px_rgba(0,0,0,0.18)]"
+    >
+      {icon}
+      <div className="mt-2 text-[1rem] font-black text-[#f0cc65] [text-shadow:0_2px_0_rgba(255,255,255,0.22)]">
+        {label}
+      </div>
+    </Link>
+  );
+}
 
 export default async function LigaPage() {
   const session = await getCurrentSession();
 
   if (!session) {
-    redirect("/login");
+    redirect('/login');
   }
 
   const league = await prisma.league.findUnique({
@@ -20,139 +89,76 @@ export default async function LigaPage() {
           user: true,
         },
         orderBy: {
-          createdAt: "asc",
+          createdAt: 'asc',
         },
       },
     },
   });
 
   if (!league) {
-    redirect("/minhas-ligas");
+    redirect('/minhas-ligas');
   }
 
   const headersList = await headers();
-  const host = headersList.get("host") ?? "localhost:3000";
-  const protocol = host.includes("localhost") ? "http" : "https";
+  const host = headersList.get('host') ?? 'localhost:3000';
+  const forwardedProto = headersList.get('x-forwarded-proto');
+  const protocol =
+    forwardedProto ??
+    (host.includes('localhost') || host.startsWith('127.0.0.1') ? 'http' : 'https');
 
   const inviteUrl = `${protocol}://${host}/entrar/${league.inviteCode}`;
+  const isLeagueAdmin = session.membership.role === 'ADMIN';
 
   return (
-    <main className="min-h-screen bg-zinc-950 text-white">
-      <section className="mx-auto max-w-5xl px-6 py-10">
-        <div className="mb-8 flex items-center justify-between gap-4">
-          <div>
-            <p className="mb-2 text-sm font-semibold uppercase tracking-[0.3em] text-green-400">
-              Liga ativa
-            </p>
-
-            <h1 className="text-4xl font-bold">{league.name}</h1>
-
-            <p className="mt-2 text-zinc-400">
-              Código da liga: {league.inviteCode}
-            </p>
-          
-            <p className="mt-2 text-zinc-400">
-              Logado como: {session.user.name}
-            </p>
-          </div>
-
-          <div className="flex gap-3">
-            <a
-              href="/minhas-ligas"
-              className="rounded-xl border border-zinc-700 px-5 py-3 text-sm font-bold text-zinc-200 transition hover:bg-zinc-800"
-            >
-              Trocar Liga
-            </a>
-
-            <a
-              href="/palpites"
-              className="rounded-xl bg-green-500 px-5 py-3 text-sm font-bold text-zinc-950 transition hover:bg-green-400"
-            >
-              Palpites
-            </a>
-          </div>
+    <main className="min-h-screen bg-black text-white">
+      <section className="mx-auto flex min-h-screen w-full max-w-md flex-col px-4 pb-12 pt-6 sm:max-w-lg sm:px-6">
+        <div className="mb-6 flex justify-center">
+          <img
+            src={logoImage.src}
+            alt="Logo Bolao Copa 2026"
+            className="w-44 max-w-[72vw] sm:w-52"
+          />
         </div>
 
-        <div className="mb-6 rounded-3xl border border-zinc-800 bg-zinc-900 p-8">
-          <h2 className="text-2xl font-bold">Link de convite</h2>
-
-          <p className="mt-2 text-zinc-400">
-            Envie este link para quem você quer chamar para a liga.
-          </p>
-
-          <div className="mt-5 rounded-2xl bg-zinc-950 p-4 text-sm text-green-300">
-            {inviteUrl}
+        <div className="mx-auto w-full max-w-[15.8rem] rounded-[2rem] border border-[#12338d] bg-[#050812] px-5 py-4 text-center shadow-[0_12px_30px_rgba(0,0,0,0.32)]">
+          <h1 className="truncate text-[1rem] font-black leading-tight text-white">
+            <span className="mr-2 inline-block h-2 w-2 rounded-full bg-[#36ff49]" />
+            {league.name}
+          </h1>
+          <div className="mt-2 text-[10px] text-white/60">
+            {isLeagueAdmin ? 'Administrador' : 'Participante'}
           </div>
+          {isLeagueAdmin && (
+            <div className="mt-2 flex justify-center">
+              <span className="rounded-full bg-white/10 px-3 py-1 text-[8px] text-white/70">
+                Codigo: {league.inviteCode}
+              </span>
+            </div>
+          )}
         </div>
 
-        <div className="mb-6 grid gap-4 md:grid-cols-4">
-          <a
-            href="/palpites"
-            className="rounded-2xl border border-zinc-800 bg-zinc-900 p-6 transition hover:border-green-500/40"
+        <div className="mt-8 flex items-center justify-between gap-4 px-1">
+          <Link
+            href="/inicio"
+            className="flex h-11 min-w-[6.4rem] items-center justify-center rounded-[1.1rem] border-2 border-white bg-[#e1a81d] px-4 text-sm font-black text-white shadow-[0_10px_24px_rgba(0,0,0,0.2)]"
           >
-            <div className="text-3xl font-bold">⚽</div>
-            <h3 className="mt-3 text-xl font-bold">Palpites</h3>
-            <p className="mt-1 text-sm text-zinc-400">
-              Preencher ou revisar seus palpites.
-            </p>
-          </a>
+            Pagina Inicial
+          </Link>
 
-          <a
-            href="/ranking"
-            className="rounded-2xl border border-zinc-800 bg-zinc-900 p-6 transition hover:border-green-500/40"
-          >
-            <div className="text-3xl font-bold">🏆</div>
-            <h3 className="mt-3 text-xl font-bold">Ranking</h3>
-            <p className="mt-1 text-sm text-zinc-400">
-              Ver a classificação da liga.
-            </p>
-          </a>
-
-          <a
+          <Link
             href="/minhas-ligas"
-            className="rounded-2xl border border-zinc-800 bg-zinc-900 p-6 transition hover:border-green-500/40"
+            className="flex h-11 min-w-[6.4rem] items-center justify-center rounded-[1.1rem] border-2 border-white bg-[#e1a81d] px-4 text-sm font-black text-white shadow-[0_10px_24px_rgba(0,0,0,0.2)]"
           >
-            <div className="text-3xl font-bold">🔁</div>
-            <h3 className="mt-3 text-xl font-bold">Minhas ligas</h3>
-            <p className="mt-1 text-sm text-zinc-400">
-              Trocar entre ligas que você participa.
-            </p>
-          </a>
-
-          <a
-            href="/liga/membros"
-            className="rounded-2xl border border-zinc-800 bg-zinc-900 p-6 transition hover:border-green-500/40"
-          >
-            <div className="text-3xl font-bold">👥</div>
-            <h3 className="mt-3 text-xl font-bold">Membros</h3>
-            <p className="mt-1 text-sm text-zinc-400">
-              Gerenciar participantes da liga.
-            </p>
-          </a>
+            Minhas ligas
+          </Link>
         </div>
 
-        <div className="rounded-3xl border border-zinc-800 bg-zinc-900 p-8">
-          <h2 className="mb-5 text-2xl font-bold">Participantes</h2>
+        {isLeagueAdmin && <InviteLink inviteUrl={inviteUrl} />}
 
-          <div className="grid gap-3">
-            {league.members.map((member) => (
-              <div
-                key={member.id}
-                className="flex items-center justify-between rounded-2xl bg-zinc-950 px-5 py-4"
-              >
-                <div>
-                  <div className="font-bold">{member.user.name}</div>
-                  <div className="text-sm text-zinc-500">
-                    {member.user.email}
-                  </div>
-                </div>
-
-                <span className="rounded-full bg-zinc-800 px-3 py-1 text-xs font-bold text-zinc-300">
-                  {member.role}
-                </span>
-              </div>
-            ))}
-          </div>
+        <div className="mt-12 space-y-12">
+          <ActionCard href="/ranking" icon={<ClassificationIcon />} label="Classificação" />
+          <ActionCard href="/palpites" icon={<PredictionIcon />} label="Meus palpites" />
+          <ActionCard href="/liga/membros" icon={<MembersIcon />} label="Membros" />
         </div>
       </section>
     </main>

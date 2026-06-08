@@ -1,10 +1,10 @@
 import { MatchPhase } from '@prisma/client';
-import { prisma } from '../lib/prisma';
 import bcrypt from 'bcryptjs';
+import { parse } from 'csv-parse/sync';
 import fs from 'fs';
 import path from 'path';
-import { parse } from 'csv-parse/sync';
 
+import { prisma } from '../lib/prisma';
 
 type MatchCsvRow = {
   number: string;
@@ -78,30 +78,12 @@ async function main() {
 
   const hashedPassword = await bcrypt.hash('admin123', 10);
 
-  const admin = await prisma.user.create({
+  await prisma.user.create({
     data: {
       name: 'Admin',
       email: 'admin@bolao.com',
       password: hashedPassword,
       isSystemAdmin: true,
-    },
-  });
-
-  console.log('Criando liga padrão...');
-
-  const league = await prisma.league.create({
-    data: {
-      name: 'Bolão Copa 2026',
-      inviteCode: 'COPA26',
-      ownerId: admin.id,
-    },
-  });
-
-  await prisma.leagueMember.create({
-    data: {
-      leagueId: league.id,
-      userId: admin.id,
-      role: 'ADMIN',
     },
   });
 
@@ -120,12 +102,7 @@ async function main() {
 
   console.log('Lendo CSV de jogos...');
 
-  const csvPath = path.join(
-    process.cwd(),
-    'data',
-    'worldcup-2026-matches.csv'
-  );
-
+  const csvPath = path.join(process.cwd(), 'data', 'worldcup-2026-matches.csv');
   const csvContent = fs.readFileSync(csvPath, 'utf-8');
 
   const rows = parse(csvContent, {
@@ -140,7 +117,7 @@ async function main() {
     const number = Number(row.number);
 
     if (Number.isNaN(number)) {
-      console.warn(`Jogo ignorado por number inválido: ${row.number}`);
+      console.warn(`Jogo ignorado por number invalido: ${row.number}`);
       continue;
     }
 
@@ -185,7 +162,7 @@ async function main() {
   console.log('Seed finalizado!');
   console.log('Login admin: admin@bolao.com');
   console.log('Senha admin: admin123');
-  console.log('Código da liga: COPA26');
+  console.log('Nenhuma liga inicial foi criada.');
 }
 
 main()

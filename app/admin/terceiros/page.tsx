@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/prisma';
-import { getCurrentSession } from '@/lib/auth';
+import { getCurrentUser } from '@/lib/auth';
 import { calculateGroupStandings, getQualifiedSlots } from '@/lib/standings';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
@@ -19,13 +19,13 @@ function getThirdSlotOptions(slot: string) {
 async function resolveThirdSlot(formData: FormData) {
   'use server';
 
-  const session = await getCurrentSession();
+  const user = await getCurrentUser();
 
-  if (!session) {
+  if (!user) {
     redirect('/login');
   }
 
-  if (!session.user.isSystemAdmin) {
+  if (!user.isSystemAdmin) {
     return;
   }
 
@@ -77,13 +77,13 @@ async function resolveThirdSlot(formData: FormData) {
 }
 
 export default async function AdminTerceirosPage() {
-  const session = await getCurrentSession();
+  const user = await getCurrentUser();
 
-  if (!session) {
+  if (!user) {
     redirect('/login');
   }
 
-  if (!session.user.isSystemAdmin) {
+  if (!user.isSystemAdmin) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-zinc-950 px-6 text-white">
         <div className="max-w-md rounded-3xl border border-red-500/30 bg-red-500/10 p-8">

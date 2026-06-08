@@ -1,13 +1,13 @@
 import { prisma } from "@/lib/prisma";
-import { getCurrentSession } from "@/lib/auth";
+import { getCurrentUser } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 async function togglePredictionsLock() {
   "use server";
 
-  const session = await getCurrentSession();
-  if (!session || !session.user.isSystemAdmin) {
+  const user = await getCurrentUser();
+  if (!user || !user.isSystemAdmin) {
     return;
   }
 
@@ -38,13 +38,13 @@ async function togglePredictionsLock() {
 }
 
 export default async function AdminConfiguracoesPage() {
-  const session = await getCurrentSession();
+  const user = await getCurrentUser();
 
-  if (!session) {
+  if (!user) {
     redirect("/login");
   }
 
-  if (!session.user.isSystemAdmin) {
+  if (!user.isSystemAdmin) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-zinc-950 px-6 text-white">
         <div className="max-w-md rounded-3xl border border-red-500/30 bg-red-500/10 p-8">

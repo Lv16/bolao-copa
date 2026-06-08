@@ -1,7 +1,11 @@
-import { prisma } from '@/lib/prisma';
-import { getCurrentUser, getCurrentSession } from '@/lib/auth';
+/* eslint-disable @next/next/no-img-element */
+import Link from 'next/link';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
+
+import logoImage from '@/app/img/logo.png';
+import { getCurrentUser } from '@/lib/auth';
+import { prisma } from '@/lib/prisma';
 
 async function selectLeague(formData: FormData) {
   'use server';
@@ -40,12 +44,11 @@ async function selectLeague(formData: FormData) {
     maxAge: 60 * 60 * 24 * 30,
   });
 
-  redirect('/palpites');
+  redirect('/liga');
 }
 
 export default async function MinhasLigasPage() {
   const user = await getCurrentUser();
-  const session = await getCurrentSession();
 
   if (!user) {
     redirect('/login');
@@ -56,7 +59,19 @@ export default async function MinhasLigasPage() {
       userId: user.id,
     },
     include: {
-      league: true,
+      league: {
+        include: {
+          members: {
+            include: {
+              user: {
+                include: {
+                  predictions: true,
+                },
+              },
+            },
+          },
+        },
+      },
     },
     orderBy: {
       createdAt: 'desc',
@@ -64,122 +79,112 @@ export default async function MinhasLigasPage() {
   });
 
   return (
-    <main className="min-h-screen bg-zinc-950 text-white">
-      <section className="mx-auto max-w-5xl px-6 py-10">
-        <div className="mb-8 flex items-center justify-between gap-4">
-          <div>
-            <p className="mb-2 text-sm font-semibold uppercase tracking-[0.3em] text-green-400">
-              Ligas
-            </p>
-
-            <h1 className="text-4xl font-bold">
-              Minhas ligas
-            </h1>
-
-            <p className="mt-2 text-zinc-400">
-              Escolha em qual liga você quer fazer palpites e acompanhar o ranking.
-            </p>
-          </div>
-
-          <div className="flex gap-3">
-            <a
-              href="/"
-              className="rounded-xl border border-zinc-700 px-5 py-3 text-sm font-bold text-zinc-200 transition hover:bg-zinc-800"
-            >
-              Home
-            </a>
-
-            <a
-              href="/ligas/criar"
-              className="rounded-xl bg-green-500 px-5 py-3 text-sm font-bold text-zinc-950 transition hover:bg-green-400"
-            >
-              Criar Liga
-            </a>
-          </div>
+    <main className="min-h-screen bg-black text-white">
+      <section className="mx-auto flex min-h-screen w-full max-w-md flex-col px-4 pb-10 pt-6 sm:max-w-lg sm:px-6">
+        <div className="mb-6 flex justify-center">
+          <img
+            src={logoImage.src}
+            alt="Logo Bolao Copa 2026"
+            className="w-44 max-w-[72vw] sm:w-52"
+          />
         </div>
 
-        <div className="grid gap-4">
+        <div className="mx-auto w-full max-w-[15.8rem] rounded-[2rem] border border-[#12338d] bg-[#050812] px-5 py-6 text-center shadow-[0_12px_30px_rgba(0,0,0,0.32)]">
+          <h1 className="text-[1.15rem] font-black uppercase tracking-[0.04em] text-white">
+            Minhas Ligas
+          </h1>
+        </div>
+
+        <div className="mt-10 px-3">
+          <Link
+            href="/inicio"
+            className="inline-flex h-11 min-w-[6.1rem] items-center justify-center rounded-[1.1rem] border-2 border-white bg-[#e1a81d] px-4 text-sm font-black text-white shadow-[0_10px_24px_rgba(0,0,0,0.2)]"
+          >
+            Pagina Inicial
+          </Link>
+        </div>
+
+        <div className="mt-10 grid grid-cols-2 gap-3">
           {memberships.map((membership) => {
-            const isActive = membership.leagueId === session?.league.id;
+            const ranking = membership.league.members
+              .map((member) => {
+                const totalPoints = member.user.predictions
+                  .filter((prediction) => prediction.leagueId === membership.leagueId)
+                  .reduce((sum, prediction) => sum + prediction.points, 0);
+
+                const exactScores = member.user.predictions.filter(
+                  (prediction) =>
+                    prediction.leagueId === membership.leagueId && prediction.points === 3
+                ).length;
+
+                return {
+                  userId: member.userId,
+                  name: member.user.name,
+                  totalPoints,
+                  exactScores,
+                };
+              })
+              .sort((a, b) => {
+                if (b.totalPoints !== a.totalPoints) {
+                  return b.totalPoints - a.totalPoints;
+                }
+
+                if (b.exactScores !== a.exactScores) {
+                  return b.exactScores - a.exactScores;
+                }
+
+                return a.name.localeCompare(b.name);
+              });
+
+            const position =
+              ranking.findIndex((entry) => entry.userId === user.id) + 1 || 0;
 
             return (
               <div
                 key={membership.id}
-                className={`rounded-2xl border p-5 ${
-                  isActive
-                    ? 'border-green-500/40 bg-green-500/10'
-                    : 'border-zinc-800 bg-zinc-900'
-                }`}
+                className="rounded-[1.8rem] border border-[#12338d] bg-[#102057] px-4 py-5 text-center shadow-[0_12px_28px_rgba(0,0,0,0.28)]"
               >
-                <div className="flex items-center justify-between gap-4">
-                  <div>
-                    <h2 className="text-xl font-bold">
-                      {membership.league.name}
-                    </h2>
+                <h2 className="truncate text-center text-[1rem] font-black leading-tight text-white">
+                  <span className="mr-1 inline-block h-2 w-2 rounded-full bg-[#36ff49]" />
+                  {membership.league.name}
+                </h2>
 
-                    <p className="mt-1 text-sm text-zinc-400">
-                      Código: {membership.league.inviteCode}
-                    </p>
-
-                    <p className="mt-1 text-xs text-zinc-500">
-                      Sua função: {membership.role}
-                    </p>
-                  </div>
-
-                  <div className="flex items-center gap-3">
-                    {isActive && (
-                      <span className="rounded-full bg-green-500/20 px-4 py-2 text-sm font-bold text-green-300">
-                        Ativa
-                      </span>
-                    )}
-
-                    <form action={selectLeague}>
-                      <input
-                        type="hidden"
-                        name="leagueId"
-                        value={membership.leagueId}
-                      />
-
-                      <button
-                        type="submit"
-                        disabled={isActive}
-                        className="rounded-xl bg-green-500 px-5 py-3 text-sm font-bold text-zinc-950 transition hover:bg-green-400 disabled:cursor-not-allowed disabled:opacity-50"
-                      >
-                        Usar esta liga
-                      </button>
-                    </form>
-                  </div>
+                <div className="mt-3 flex items-center justify-center text-[0.7rem] text-white/90">
+                  <span className="rounded-full bg-white/35 px-4 py-1 leading-none">
+                    Minha Posicao: {position}
+                  </span>
                 </div>
+
+                <form action={selectLeague} className="mt-6 flex justify-center">
+                  <input type="hidden" name="leagueId" value={membership.leagueId} />
+                  <button
+                    type="submit"
+                    className="flex h-10 min-w-[7.4rem] items-center justify-center rounded-full border-2 border-white/65 px-5 text-[0.95rem] font-black text-white"
+                  >
+                    Acessar
+                  </button>
+                </form>
               </div>
             );
           })}
-
-          {memberships.length === 0 && (
-            <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-8 text-center text-zinc-400">
-              <h3 className="text-xl font-bold mb-2">Você ainda não participa de nenhuma liga</h3>
-
-              <p className="mb-4 text-sm text-zinc-400">
-                Você pode criar sua própria liga ou entrar em uma liga pelo link de convite que alguém te enviar.
-              </p>
-
-              <div className="flex items-center justify-center gap-3">
-                <a
-                  href="/ligas/criar"
-                  className="rounded-xl bg-green-500 px-5 py-3 text-sm font-bold text-zinc-950 transition hover:bg-green-400"
-                >
-                  Criar Liga
-                </a>
-
-                <a
-                  href="/"
-                  className="rounded-xl border border-zinc-700 px-5 py-3 text-sm font-bold text-zinc-200 transition hover:bg-zinc-800"
-                >
-                  Voltar para Home
-                </a>
-              </div>
-            </div>
-          )}
         </div>
+
+        {memberships.length === 0 && (
+          <div className="mt-10 rounded-[1.8rem] border border-[#12338d] bg-[#050812] px-6 py-8 text-center">
+            <h2 className="text-lg font-black text-white">Voce ainda nao participa de nenhuma liga</h2>
+            <p className="mt-3 text-sm text-white/65">
+              Entre em uma liga pela pagina inicial ou crie uma nova.
+            </p>
+            <div className="mt-5 flex items-center justify-center gap-3">
+              <Link
+                href="/inicio"
+                className="flex h-11 items-center justify-center rounded-[1.1rem] border-2 border-white bg-[#e1a81d] px-4 text-sm font-black text-white"
+              >
+                Ir para Inicio
+              </Link>
+            </div>
+          </div>
+        )}
       </section>
     </main>
   );
