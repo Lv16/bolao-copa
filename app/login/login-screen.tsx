@@ -1,15 +1,39 @@
+'use client';
+
 /* eslint-disable @next/next/no-img-element */
 import Link from 'next/link';
+import { useState } from 'react';
 
 import copaImage from '@/app/img/copa.jpg';
 import logoImage from '@/app/img/logo.png';
 
 type LoginScreenProps = {
   error?: string;
+  recovery?: string;
   loginAction: (formData: FormData) => void | Promise<void>;
 };
 
-export function LoginScreen({ error, loginAction }: LoginScreenProps) {
+function EyeIcon({ open }: { open: boolean }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+      className="h-[18px] w-[18px] stroke-current"
+      fill="none"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6-10-6-10-6Z" />
+      <circle cx="12" cy="12" r="3.2" />
+      {!open && <path d="m4 20 16-16" />}
+    </svg>
+  );
+}
+
+export function LoginScreen({ error, recovery, loginAction }: LoginScreenProps) {
+  const [showPassword, setShowPassword] = useState(false);
+
   return (
     <main className="auth-noise relative min-h-screen overflow-hidden bg-black text-white">
       <div className="auth-grid pointer-events-none absolute inset-0 opacity-10" />
@@ -53,6 +77,18 @@ export function LoginScreen({ error, loginAction }: LoginScreenProps) {
               </div>
             )}
 
+            {recovery === 'reset_success' && (
+              <div className="mt-5 rounded-2xl border border-[#d8a11f]/40 bg-[#d8a11f]/10 px-4 py-3 text-sm text-yellow-50">
+                Senha alterada com sucesso. Agora faca login com a nova senha.
+              </div>
+            )}
+
+            {recovery === 'not_found' && (
+              <div className="mt-5 rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+                Nenhuma conta foi encontrada com este e-mail.
+              </div>
+            )}
+
             <form action={loginAction} className="mt-8 grid gap-6">
               <div>
                 <label className="mb-2 block text-sm font-semibold text-[#262626]">
@@ -73,16 +109,23 @@ export function LoginScreen({ error, loginAction }: LoginScreenProps) {
                 <div className="relative">
                   <input
                     name="password"
-                    type="password"
+                    type={showPassword ? 'text' : 'password'}
                     className="h-12 w-full rounded-full border border-[#d6d6d6] bg-white px-4 pr-12 text-base text-black outline-none"
                     required
                   />
-                  <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[#8a8a8a]">
-                    ◉
-                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((current) => !current)}
+                    aria-label={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-[#8a8a8a]"
+                  >
+                    <EyeIcon open={showPassword} />
+                  </button>
                 </div>
                 <div className="mt-2 text-right text-[11px] text-[#2c2c2c]">
-                  Esqueci minha senha
+                  <Link href="/recuperar-senha" className="transition hover:text-black">
+                    Esqueci minha senha
+                  </Link>
                 </div>
               </div>
 

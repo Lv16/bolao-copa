@@ -8,6 +8,7 @@ import { LoginScreen } from './login-screen';
 type LoginPageProps = {
   searchParams: Promise<{
     error?: string;
+    recovery?: string;
   }>;
 };
 
@@ -72,7 +73,7 @@ async function login(formData: FormData) {
 }
 
 export default async function LoginPage({ searchParams }: LoginPageProps) {
-  const { error } = await searchParams;
+  const { error, recovery } = await searchParams;
 
-  return <LoginScreen error={error} loginAction={login} />;
+  return <LoginScreen error={error} recovery={recovery} loginAction={login} />;
 }

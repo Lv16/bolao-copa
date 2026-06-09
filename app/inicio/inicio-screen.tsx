@@ -25,6 +25,24 @@ type InicioScreenProps = {
   joinLeagueAction: (formData: FormData) => Promise<void>;
 };
 
+function SearchIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+      className="h-5 w-5"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <circle cx="11" cy="11" r="6.5" />
+      <path d="m16 16 4.5 4.5" />
+    </svg>
+  );
+}
+
 export function InicioScreen({
   memberships,
   discoverLeagues,
@@ -59,8 +77,8 @@ export function InicioScreen({
             placeholder="Informe o codigo"
             className="h-11 w-full rounded-[1rem] border-2 border-[#d4a017] bg-[#d9d9d9] px-4 pr-12 text-sm font-medium text-black outline-none placeholder:text-black/45"
           />
-          <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-lg text-[#d4a017]">
-            🔎
+          <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-[#d4a017]">
+            <SearchIcon />
           </span>
         </label>
       </div>

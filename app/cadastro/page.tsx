@@ -51,7 +51,7 @@ async function register(formData: FormData) {
       maxAge: 60 * 60 * 24 * 30,
     });
 
-    redirect('/minhas-ligas');
+    redirect('/inicio');
   }
 
   const hashedPassword = await bcrypt.hash(password, 10);
@@ -73,7 +73,7 @@ async function register(formData: FormData) {
     maxAge: 60 * 60 * 24 * 30,
   });
 
-  redirect('/minhas-ligas');
+  redirect('/inicio');
 }
 
 export default async function CadastroPage({ searchParams }: CadastroPageProps) {
