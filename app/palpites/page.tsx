@@ -1,11 +1,10 @@
 /* eslint-disable @next/next/no-img-element */
-import Link from 'next/link';
 import { MatchPhase } from '@prisma/client';
-import { cookies } from 'next/headers';
 import { revalidatePath } from 'next/cache';
-import { redirect } from 'next/navigation';
 
 import logoImage from '@/app/img/logo.png';
+import { ProtectedLink } from '@/app/protected-link';
+import { requireCurrentSession } from '@/lib/auth';
 import { getFlagUrl } from '@/lib/flags';
 import { formatPhase, isMatchPredictionLocked } from '@/lib/format';
 import { prisma } from '@/lib/prisma';
@@ -14,14 +13,9 @@ import { MatchCard } from './match-card';
 async function savePrediction(formData: FormData) {
   'use server';
 
-  const cookieStore = await cookies();
-
-  const userId = cookieStore.get('bolao_user_id')?.value;
-  const leagueId = cookieStore.get('bolao_league_id')?.value;
-
-  if (!userId || !leagueId) {
-    redirect('/entrar/COPA26');
-  }
+  const session = await requireCurrentSession();
+  const userId = session.user.id;
+  const leagueId = session.league.id;
 
   const matchId = String(formData.get('matchId'));
 
@@ -101,24 +95,12 @@ async function savePrediction(formData: FormData) {
   });
 
   revalidatePath('/palpites');
-  redirect('/palpites');
 }
 
 export default async function PalpitesPage() {
-  const cookieStore = await cookies();
-
-  const userId = cookieStore.get('bolao_user_id')?.value;
-  const leagueId = cookieStore.get('bolao_league_id')?.value;
-
-  if (!userId || !leagueId) {
-    redirect('/entrar/COPA26');
-  }
-
-  const user = await prisma.user.findUnique({
-    where: {
-      id: userId,
-    },
-  });
+  const session = await requireCurrentSession();
+  const userId = session.user.id;
+  const leagueId = session.league.id;
 
   const league = await prisma.league.findUnique({
     where: {
@@ -200,21 +182,21 @@ export default async function PalpitesPage() {
         </div>
 
         <div className="mt-8 flex items-center justify-between gap-4 px-1">
-          <Link
+          <ProtectedLink
             href="/inicio"
             className="flex h-11 min-w-[6.6rem] items-center justify-center rounded-[1.1rem] border-2 border-white bg-[#e1a81d] px-4 text-sm font-black leading-tight text-white shadow-[0_10px_24px_rgba(0,0,0,0.2)]"
           >
             Pagina inicial
-          </Link>
+          </ProtectedLink>
 
-          <Link
+          <ProtectedLink
             href="/liga"
             className="flex h-11 min-w-[6.6rem] items-center justify-center rounded-[1.1rem] border-2 border-white bg-[#e1a81d] px-4 text-center text-sm font-black leading-tight text-white shadow-[0_10px_24px_rgba(0,0,0,0.2)]"
           >
             Informacoes
             <br />
             da Liga
-          </Link>
+          </ProtectedLink>
         </div>
 
         {globalLocked && (
@@ -298,7 +280,7 @@ export default async function PalpitesPage() {
         </div>
 
         <div className="mt-8 text-center text-xs text-white/45">
-          Liga: {league?.name ?? 'Nao encontrada'} • Usuario: {user?.name ?? 'Nao encontrado'}
+          Liga: {league?.name ?? 'Nao encontrada'} • Usuario: {session.user.name}
         </div>
       </section>
     </main>

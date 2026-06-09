@@ -1,9 +1,9 @@
 /* eslint-disable @next/next/no-img-element */
-import Link from 'next/link';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 
 import logoImage from '@/app/img/logo.png';
+import { ProtectedLink } from '@/app/protected-link';
 import { getCurrentUser } from '@/lib/auth';
 import { authCookieOptions } from '@/lib/cookies';
 import { prisma } from '@/lib/prisma';
@@ -92,12 +92,12 @@ export default async function MinhasLigasPage() {
         </div>
 
         <div className="mt-10 px-3">
-          <Link
+          <ProtectedLink
             href="/inicio"
             className="inline-flex h-11 min-w-[6.1rem] items-center justify-center rounded-[1.1rem] border-2 border-white bg-[#e1a81d] px-4 text-sm font-black text-white shadow-[0_10px_24px_rgba(0,0,0,0.2)]"
           >
             Pagina Inicial
-          </Link>
+          </ProtectedLink>
         </div>
 
         <div className="mt-10 grid grid-cols-2 gap-3">
@@ -172,12 +172,12 @@ export default async function MinhasLigasPage() {
               Entre em uma liga pela pagina inicial ou crie uma nova.
             </p>
             <div className="mt-5 flex items-center justify-center gap-3">
-              <Link
+              <ProtectedLink
                 href="/inicio"
                 className="flex h-11 items-center justify-center rounded-[1.1rem] border-2 border-white bg-[#e1a81d] px-4 text-sm font-black text-white"
               >
                 Ir para Inicio
-              </Link>
+              </ProtectedLink>
             </div>
           </div>
         )}

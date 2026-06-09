@@ -1,10 +1,10 @@
 /* eslint-disable @next/next/no-img-element */
-import Link from 'next/link';
 import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 
 import logoImage from '@/app/img/logo.png';
-import { getCurrentSession } from '@/lib/auth';
+import { ProtectedLink } from '@/app/protected-link';
+import { requireCurrentSession } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { InviteLink } from './invite-link';
 
@@ -60,7 +60,7 @@ type ActionCardProps = {
 
 function ActionCard({ href, icon, label }: ActionCardProps) {
   return (
-    <Link
+    <ProtectedLink
       href={href}
       className="flex min-h-[6.7rem] flex-col items-center justify-center rounded-[1.15rem] border border-white/45 bg-black px-4 py-6 text-center shadow-[0_10px_24px_rgba(0,0,0,0.18)]"
     >
@@ -68,16 +68,12 @@ function ActionCard({ href, icon, label }: ActionCardProps) {
       <div className="mt-2 text-[1rem] font-black text-[#f0cc65] [text-shadow:0_2px_0_rgba(255,255,255,0.22)]">
         {label}
       </div>
-    </Link>
+    </ProtectedLink>
   );
 }
 
 export default async function LigaPage() {
-  const session = await getCurrentSession();
-
-  if (!session) {
-    redirect('/login');
-  }
+  const session = await requireCurrentSession();
 
   const league = await prisma.league.findUnique({
     where: {
@@ -138,19 +134,19 @@ export default async function LigaPage() {
         </div>
 
         <div className="mt-8 flex items-center justify-between gap-4 px-1">
-          <Link
+          <ProtectedLink
             href="/inicio"
             className="flex h-11 min-w-[6.4rem] items-center justify-center rounded-[1.1rem] border-2 border-white bg-[#e1a81d] px-4 text-sm font-black text-white shadow-[0_10px_24px_rgba(0,0,0,0.2)]"
           >
             Pagina Inicial
-          </Link>
+          </ProtectedLink>
 
-          <Link
+          <ProtectedLink
             href="/minhas-ligas"
             className="flex h-11 min-w-[6.4rem] items-center justify-center rounded-[1.1rem] border-2 border-white bg-[#e1a81d] px-4 text-sm font-black text-white shadow-[0_10px_24px_rgba(0,0,0,0.2)]"
           >
             Minhas ligas
-          </Link>
+          </ProtectedLink>
         </div>
 
         {isLeagueAdmin && <InviteLink inviteUrl={inviteUrl} />}

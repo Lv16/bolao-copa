@@ -1,4 +1,5 @@
 import { cookies } from 'next/headers';
+import { redirect } from 'next/navigation';
 import { prisma } from './prisma';
 
 export async function getCurrentUser() {
@@ -51,4 +52,30 @@ export async function getCurrentSession() {
     league: membership.league,
     membership,
   };
+}
+
+export async function requireCurrentUser() {
+  const user = await getCurrentUser();
+
+  if (!user) {
+    redirect('/login');
+  }
+
+  return user;
+}
+
+export async function requireCurrentSession() {
+  const user = await getCurrentUser();
+
+  if (!user) {
+    redirect('/login');
+  }
+
+  const session = await getCurrentSession();
+
+  if (!session) {
+    redirect('/minhas-ligas');
+  }
+
+  return session;
 }

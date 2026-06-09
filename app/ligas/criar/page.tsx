@@ -1,9 +1,9 @@
 /* eslint-disable @next/next/no-img-element */
-import Link from 'next/link';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 
 import logoImage from '@/app/img/logo.png';
+import { ProtectedLink } from '@/app/protected-link';
 import { getCurrentUser } from '@/lib/auth';
 import { authCookieOptions } from '@/lib/cookies';
 import { prisma } from '@/lib/prisma';
@@ -127,9 +127,9 @@ export default async function CriarLigaPage() {
           </form>
 
           <div className="pt-5 text-center text-sm">
-            <Link href="/inicio" className="text-white/75 transition hover:text-white">
+            <ProtectedLink href="/inicio" className="text-white/75 transition hover:text-white">
               Voltar
-            </Link>
+            </ProtectedLink>
           </div>
         </div>
       </section>

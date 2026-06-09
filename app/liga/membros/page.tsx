@@ -1,20 +1,16 @@
 /* eslint-disable @next/next/no-img-element */
-import Link from 'next/link';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 
 import logoImage from '@/app/img/logo.png';
-import { getCurrentSession } from '@/lib/auth';
+import { ProtectedLink } from '@/app/protected-link';
+import { requireCurrentSession } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 
 async function removeMember(formData: FormData) {
   'use server';
 
-  const session = await getCurrentSession();
-
-  if (!session) {
-    redirect('/login');
-  }
+  const session = await requireCurrentSession();
 
   if (session.membership.role !== 'ADMIN') {
     return;
@@ -66,11 +62,7 @@ function TrashIcon() {
 }
 
 export default async function LigaMembrosPage() {
-  const session = await getCurrentSession();
-
-  if (!session) {
-    redirect('/login');
-  }
+  const session = await requireCurrentSession();
 
   const league = await prisma.league.findUnique({
     where: {
@@ -115,21 +107,21 @@ export default async function LigaMembrosPage() {
         </div>
 
         <div className="mt-8 flex items-center justify-between gap-4 px-1">
-          <Link
+          <ProtectedLink
             href="/inicio"
             className="flex h-11 min-w-[6.4rem] items-center justify-center rounded-[1.1rem] border-2 border-white bg-[#e1a81d] px-4 text-sm font-black text-white shadow-[0_10px_24px_rgba(0,0,0,0.2)]"
           >
             Pagina inicial
-          </Link>
+          </ProtectedLink>
 
-          <Link
+          <ProtectedLink
             href="/liga"
             className="flex h-11 min-w-[6.8rem] items-center justify-center rounded-[1.1rem] border-2 border-white bg-[#e1a81d] px-4 text-center text-sm font-black leading-tight text-white shadow-[0_10px_24px_rgba(0,0,0,0.2)]"
           >
             Informacoes
             <br />
             da Liga
-          </Link>
+          </ProtectedLink>
         </div>
 
         <div className="mt-10 overflow-hidden rounded-[1.45rem] border border-white/70 bg-[#8d8d8d] shadow-[0_12px_26px_rgba(0,0,0,0.25)]">

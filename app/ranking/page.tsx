@@ -1,18 +1,14 @@
 /* eslint-disable @next/next/no-img-element */
-import Link from 'next/link';
 import { redirect } from 'next/navigation';
 
 import logoImage from '@/app/img/logo.png';
-import { getCurrentSession } from '@/lib/auth';
+import { ProtectedLink } from '@/app/protected-link';
+import { requireCurrentSession } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { sortRanking } from '@/lib/ranking';
 
 export default async function RankingPage() {
-  const session = await getCurrentSession();
-
-  if (!session) {
-    redirect('/login');
-  }
+  const session = await requireCurrentSession();
 
   const league = await prisma.league.findUnique({
     where: {
@@ -94,19 +90,19 @@ export default async function RankingPage() {
         </div>
 
         <div className="mt-8 flex items-center justify-between gap-4 px-1">
-          <Link
+          <ProtectedLink
             href="/inicio"
             className="flex h-11 min-w-[6.4rem] items-center justify-center rounded-[1.1rem] border-2 border-white bg-[#e1a81d] px-4 text-sm font-black text-white shadow-[0_10px_24px_rgba(0,0,0,0.2)]"
           >
             Pagina Inicial
-          </Link>
+          </ProtectedLink>
 
-          <Link
+          <ProtectedLink
             href="/liga"
             className="flex h-11 min-w-[6.4rem] items-center justify-center rounded-[1.1rem] border-2 border-white bg-[#e1a81d] px-4 text-sm font-black text-white shadow-[0_10px_24px_rgba(0,0,0,0.2)]"
           >
             Informacoes da liga
-          </Link>
+          </ProtectedLink>
         </div>
 
         <div className="mt-8 overflow-hidden rounded-[2rem] border border-[#12338d] bg-[#020611] shadow-[0_18px_46px_rgba(0,0,0,0.36)]">
