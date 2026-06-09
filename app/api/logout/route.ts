@@ -1,10 +1,14 @@
 import { NextResponse } from 'next/server';
+
+import { getAppUrl } from '@/lib/app-url';
 import { sessionCookieName } from '@/lib/cookies';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: Request) {
-  const response = NextResponse.redirect(new URL('/login', request.url), {
+  const appUrl = getAppUrl(request);
+
+  const response = NextResponse.redirect(new URL('/login', appUrl), {
     status: 303,
   });
 

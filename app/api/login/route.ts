@@ -1,6 +1,7 @@
 import bcrypt from 'bcryptjs';
 import { NextRequest, NextResponse } from 'next/server';
 
+import { getAppUrl } from '@/lib/app-url';
 import { authCookieOptions, sessionCookieName } from '@/lib/cookies';
 import { prisma } from '@/lib/prisma';
 import { createSessionToken } from '@/lib/session-token';
@@ -53,9 +54,11 @@ export async function POST(request: NextRequest) {
     leagueId: membership?.league.id ?? null,
   });
 
+  const appUrl = getAppUrl(request);
+
   const redirectUrl = membership
-    ? new URL('/liga', request.url)
-    : new URL('/inicio', request.url);
+    ? new URL('/liga', appUrl)
+    : new URL('/inicio', appUrl);
 
   const response = NextResponse.redirect(redirectUrl, {
     status: 303,
