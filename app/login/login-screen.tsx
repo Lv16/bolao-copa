@@ -10,7 +10,6 @@ import logoImage from '@/app/img/logo.png';
 type LoginScreenProps = {
   error?: string;
   recovery?: string;
-  loginAction: (formData: FormData) => void | Promise<void>;
 };
 
 function EyeIcon({ open }: { open: boolean }) {
@@ -31,7 +30,7 @@ function EyeIcon({ open }: { open: boolean }) {
   );
 }
 
-export function LoginScreen({ error, recovery, loginAction }: LoginScreenProps) {
+export function LoginScreen({ error, recovery }: LoginScreenProps) {
   const [showPassword, setShowPassword] = useState(false);
 
   return (
@@ -89,7 +88,7 @@ export function LoginScreen({ error, recovery, loginAction }: LoginScreenProps) 
               </div>
             )}
 
-            <form action={loginAction} className="mt-8 grid gap-6">
+            <form action="/api/login" method="post" className="mt-8 grid gap-6">
               <div>
                 <label className="mb-2 block text-sm font-semibold text-[#262626]">
                   Email
