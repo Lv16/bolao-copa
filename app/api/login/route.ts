@@ -1,8 +1,9 @@
 import bcrypt from 'bcryptjs';
 import { NextRequest, NextResponse } from 'next/server';
 
-import { authCookieOptions } from '@/lib/cookies';
+import { authCookieOptions, sessionCookieName } from '@/lib/cookies';
 import { prisma } from '@/lib/prisma';
+import { createSessionToken } from '@/lib/session-token';
 
 export const dynamic = 'force-dynamic';
 
@@ -25,6 +26,9 @@ export async function POST(request: NextRequest) {
         include: {
           league: true,
         },
+        orderBy: {
+          createdAt: 'asc',
+        },
       },
     },
   });
@@ -44,20 +48,20 @@ export async function POST(request: NextRequest) {
   }
 
   const membership = user.memberships[0];
+  const token = createSessionToken({
+    userId: user.id,
+    leagueId: membership?.league.id ?? null,
+  });
 
   const redirectUrl = membership
     ? new URL('/liga', request.url)
-    : new URL('/minhas-ligas', request.url);
+    : new URL('/inicio', request.url);
 
   const response = NextResponse.redirect(redirectUrl, {
     status: 303,
   });
 
-  response.cookies.set('bolao_user_id', user.id, authCookieOptions);
-
-  if (membership) {
-    response.cookies.set('bolao_league_id', membership.league.id, authCookieOptions);
-  }
+  response.cookies.set(sessionCookieName, token, authCookieOptions);
 
   return response;
 }

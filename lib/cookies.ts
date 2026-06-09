@@ -1,5 +1,7 @@
 import type { ResponseCookie } from 'next/dist/compiled/@edge-runtime/cookies';
 
+export const sessionCookieName = 'bolao_session';
+
 export const authCookieOptions: Partial<ResponseCookie> = {
   httpOnly: true,
   sameSite: 'lax',

@@ -7,8 +7,9 @@ import { redirect } from 'next/navigation';
 import { PasswordField } from '@/app/auth/password-field';
 import copaImage from '@/app/img/copa.jpg';
 import logoImage from '@/app/img/logo.png';
-import { authCookieOptions } from '@/lib/cookies';
+import { authCookieOptions, sessionCookieName } from '@/lib/cookies';
 import { prisma } from '@/lib/prisma';
+import { createSessionToken } from '@/lib/session-token';
 
 type CadastroPageProps = {
   searchParams: Promise<{
@@ -46,7 +47,14 @@ async function register(formData: FormData) {
 
     const cookieStore = await cookies();
 
-    cookieStore.set('bolao_user_id', existingUser.id, authCookieOptions);
+    cookieStore.set(
+      sessionCookieName,
+      createSessionToken({
+        userId: existingUser.id,
+        leagueId: null,
+      }),
+      authCookieOptions
+    );
 
     redirect('/inicio');
   }
@@ -63,7 +71,14 @@ async function register(formData: FormData) {
 
   const cookieStore = await cookies();
 
-  cookieStore.set('bolao_user_id', user.id, authCookieOptions);
+  cookieStore.set(
+    sessionCookieName,
+    createSessionToken({
+      userId: user.id,
+      leagueId: null,
+    }),
+    authCookieOptions
+  );
 
   redirect('/inicio');
 }

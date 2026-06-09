@@ -1,20 +1,27 @@
 import { cookies } from 'next/headers';
 
+import { sessionCookieName } from './cookies';
 import { prisma } from './prisma';
-import { resolveSessionMembership } from './session-selection';
+import { readSessionToken } from './session-token';
 
-export async function getCurrentUser() {
+export async function getCurrentSessionPayload() {
   const cookieStore = await cookies();
 
-  const userId = cookieStore.get('bolao_user_id')?.value;
+  const token = cookieStore.get(sessionCookieName)?.value;
 
-  if (!userId) {
+  return readSessionToken(token);
+}
+
+export async function getCurrentUser() {
+  const payload = await getCurrentSessionPayload();
+
+  if (!payload?.userId) {
     return null;
   }
 
   const user = await prisma.user.findUnique({
     where: {
-      id: userId,
+      id: payload.userId,
     },
   });
 
@@ -22,53 +29,55 @@ export async function getCurrentUser() {
 }
 
 export async function getCurrentSession() {
-  const cookieStore = await cookies();
+  const payload = await getCurrentSessionPayload();
 
-  const userId = cookieStore.get('bolao_user_id')?.value;
-  const leagueId = cookieStore.get('bolao_league_id')?.value;
-
-  if (!userId) {
+  if (!payload?.userId) {
     return null;
   }
 
-  const membership = await resolveSessionMembership({
-    leagueId,
-    userId,
-    findMembership: (resolvedLeagueId, resolvedUserId) =>
-      prisma.leagueMember.findUnique({
-        where: {
-          leagueId_userId: {
-            leagueId: resolvedLeagueId,
-            userId: resolvedUserId,
-          },
+  if (payload.leagueId) {
+    const membership = await prisma.leagueMember.findUnique({
+      where: {
+        leagueId_userId: {
+          leagueId: payload.leagueId,
+          userId: payload.userId,
         },
-        include: {
-          user: true,
-          league: true,
-        },
-      }),
-    findFallbackMembership: (resolvedUserId) =>
-      prisma.leagueMember.findFirst({
-        where: {
-          userId: resolvedUserId,
-        },
-        include: {
-          user: true,
-          league: true,
-        },
-        orderBy: {
-          createdAt: 'asc',
-        },
-      }),
+      },
+      include: {
+        user: true,
+        league: true,
+      },
+    });
+
+    if (membership) {
+      return {
+        user: membership.user,
+        league: membership.league,
+        membership,
+      };
+    }
+  }
+
+  const fallbackMembership = await prisma.leagueMember.findFirst({
+    where: {
+      userId: payload.userId,
+    },
+    include: {
+      user: true,
+      league: true,
+    },
+    orderBy: {
+      createdAt: 'asc',
+    },
   });
 
-  if (!membership) {
+  if (!fallbackMembership) {
     return null;
   }
 
   return {
-    user: membership.user,
-    league: membership.league,
-    membership,
+    user: fallbackMembership.user,
+    league: fallbackMembership.league,
+    membership: fallbackMembership,
   };
 }

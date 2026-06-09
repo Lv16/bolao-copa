@@ -7,8 +7,9 @@ import { redirect } from 'next/navigation';
 import { PasswordField } from '@/app/auth/password-field';
 import copaImage from '@/app/img/copa.jpg';
 import logoImage from '@/app/img/logo.png';
-import { authCookieOptions } from '@/lib/cookies';
+import { authCookieOptions, sessionCookieName } from '@/lib/cookies';
 import { prisma } from '@/lib/prisma';
+import { createSessionToken } from '@/lib/session-token';
 
 type PageProps = {
   params: Promise<{
@@ -86,9 +87,14 @@ async function joinLeague(formData: FormData) {
 
   const cookieStore = await cookies();
 
-  cookieStore.set('bolao_user_id', user.id, authCookieOptions);
-
-  cookieStore.set('bolao_league_id', league.id, authCookieOptions);
+  cookieStore.set(
+    sessionCookieName,
+    createSessionToken({
+      userId: user.id,
+      leagueId: league.id,
+    }),
+    authCookieOptions
+  );
 
   redirect('/liga');
 }

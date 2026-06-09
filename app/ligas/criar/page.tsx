@@ -5,8 +5,9 @@ import { redirect } from 'next/navigation';
 import logoImage from '@/app/img/logo.png';
 import { ProtectedLink } from '@/app/protected-link';
 import { getCurrentUser } from '@/lib/auth';
-import { authCookieOptions } from '@/lib/cookies';
+import { authCookieOptions, sessionCookieName } from '@/lib/cookies';
 import { prisma } from '@/lib/prisma';
+import { createSessionToken } from '@/lib/session-token';
 
 function generateInviteCode() {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
@@ -70,7 +71,14 @@ async function createLeague(formData: FormData) {
 
   const cookieStore = await cookies();
 
-  cookieStore.set('bolao_league_id', league.id, authCookieOptions);
+  cookieStore.set(
+    sessionCookieName,
+    createSessionToken({
+      userId: user.id,
+      leagueId: league.id,
+    }),
+    authCookieOptions
+  );
 
   redirect('/liga');
 }

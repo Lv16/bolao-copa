@@ -5,8 +5,9 @@ import { redirect } from 'next/navigation';
 import logoImage from '@/app/img/logo.png';
 import { ProtectedLink } from '@/app/protected-link';
 import { getCurrentUser, getCurrentSession } from '@/lib/auth';
-import { authCookieOptions } from '@/lib/cookies';
+import { authCookieOptions, sessionCookieName } from '@/lib/cookies';
 import { prisma } from '@/lib/prisma';
+import { createSessionToken } from '@/lib/session-token';
 import { InicioScreen } from './inicio-screen';
 
 async function selectLeague(formData: FormData) {
@@ -39,7 +40,14 @@ async function selectLeague(formData: FormData) {
 
   const cookieStore = await cookies();
 
-  cookieStore.set('bolao_league_id', leagueId, authCookieOptions);
+  cookieStore.set(
+    sessionCookieName,
+    createSessionToken({
+      userId: user.id,
+      leagueId,
+    }),
+    authCookieOptions
+  );
 
   redirect('/liga');
 }
@@ -86,7 +94,14 @@ async function joinLeague(formData: FormData) {
 
   const cookieStore = await cookies();
 
-  cookieStore.set('bolao_league_id', league.id, authCookieOptions);
+  cookieStore.set(
+    sessionCookieName,
+    createSessionToken({
+      userId: user.id,
+      leagueId: league.id,
+    }),
+    authCookieOptions
+  );
 
   redirect('/liga');
 }

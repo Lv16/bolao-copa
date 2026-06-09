@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { sessionCookieName } from '@/lib/cookies';
 
 export const dynamic = 'force-dynamic';
 
@@ -7,8 +8,7 @@ export async function GET(request: Request) {
     status: 303,
   });
 
-  response.cookies.delete('bolao_user_id');
-  response.cookies.delete('bolao_league_id');
+  response.cookies.delete(sessionCookieName);
 
   return response;
 }
