@@ -13,7 +13,9 @@ export async function POST(request: NextRequest) {
   const password = String(formData.get('password'));
 
   if (!email || !password) {
-    return NextResponse.redirect(new URL('/login?error=missing_fields', request.url));
+    return NextResponse.redirect(new URL('/login?error=missing_fields', request.url), {
+      status: 303,
+    });
   }
 
   const user = await prisma.user.findUnique({
@@ -28,17 +30,17 @@ export async function POST(request: NextRequest) {
   });
 
   if (!user) {
-    return NextResponse.redirect(
-      new URL('/login?error=invalid_credentials', request.url)
-    );
+    return NextResponse.redirect(new URL('/login?error=invalid_credentials', request.url), {
+      status: 303,
+    });
   }
 
   const validPassword = await bcrypt.compare(password, user.password);
 
   if (!validPassword) {
-    return NextResponse.redirect(
-      new URL('/login?error=invalid_credentials', request.url)
-    );
+    return NextResponse.redirect(new URL('/login?error=invalid_credentials', request.url), {
+      status: 303,
+    });
   }
 
   const membership = user.memberships[0];
@@ -47,7 +49,9 @@ export async function POST(request: NextRequest) {
     ? new URL('/liga', request.url)
     : new URL('/minhas-ligas', request.url);
 
-  const response = NextResponse.redirect(redirectUrl);
+  const response = NextResponse.redirect(redirectUrl, {
+    status: 303,
+  });
 
   response.cookies.set('bolao_user_id', user.id, authCookieOptions);
 
