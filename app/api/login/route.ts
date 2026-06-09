@@ -57,7 +57,9 @@ export async function POST(request: NextRequest) {
     leagueId: membership?.league.id ?? null,
   });
 
-  const response = redirectRelative(membership ? '/liga' : '/inicio');
+  const response = redirectRelative(
+    user.isSystemAdmin ? '/admin/resultados' : membership ? '/liga' : '/inicio'
+  );
 
   response.cookies.set(sessionCookieName, token, authCookieOptions);
 

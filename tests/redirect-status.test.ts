@@ -27,4 +27,6 @@ test('login route source explicitly sets 303 redirects for post-login navigation
   const source = await readFile('app/api/login/route.ts', 'utf8');
 
   assert.match(source, /status:\s*303/);
+  assert.match(source, /isSystemAdmin/);
+  assert.match(source, /\/admin\/resultados/);
 });
