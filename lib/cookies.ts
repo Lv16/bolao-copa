@@ -5,7 +5,7 @@ export const sessionCookieName = 'bolao_session';
 export const authCookieOptions: Partial<ResponseCookie> = {
   httpOnly: true,
   sameSite: 'lax',
-  secure: process.env.NODE_ENV === 'production',
+  secure: false,
   path: '/',
   maxAge: 60 * 60 * 24 * 30,
 };

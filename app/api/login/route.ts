@@ -1,12 +1,20 @@
 import bcrypt from 'bcryptjs';
 import { NextRequest, NextResponse } from 'next/server';
 
-import { getAppUrl } from '@/lib/app-url';
 import { authCookieOptions, sessionCookieName } from '@/lib/cookies';
 import { prisma } from '@/lib/prisma';
 import { createSessionToken } from '@/lib/session-token';
 
 export const dynamic = 'force-dynamic';
+
+function redirectRelative(path: string) {
+  return new NextResponse(null, {
+    status: 303,
+    headers: {
+      Location: path,
+    },
+  });
+}
 
 export async function POST(request: NextRequest) {
   const formData = await request.formData();
@@ -15,9 +23,7 @@ export async function POST(request: NextRequest) {
   const password = String(formData.get('password'));
 
   if (!email || !password) {
-    return NextResponse.redirect(new URL('/login?error=missing_fields', request.url), {
-      status: 303,
-    });
+    return redirectRelative('/login?error=missing_fields');
   }
 
   const user = await prisma.user.findUnique({
@@ -35,34 +41,23 @@ export async function POST(request: NextRequest) {
   });
 
   if (!user) {
-    return NextResponse.redirect(new URL('/login?error=invalid_credentials', request.url), {
-      status: 303,
-    });
+    return redirectRelative('/login?error=invalid_credentials');
   }
 
   const validPassword = await bcrypt.compare(password, user.password);
 
   if (!validPassword) {
-    return NextResponse.redirect(new URL('/login?error=invalid_credentials', request.url), {
-      status: 303,
-    });
+    return redirectRelative('/login?error=invalid_credentials');
   }
 
   const membership = user.memberships[0];
+
   const token = createSessionToken({
     userId: user.id,
     leagueId: membership?.league.id ?? null,
   });
 
-  const appUrl = getAppUrl(request);
-
-  const redirectUrl = membership
-    ? new URL('/liga', appUrl)
-    : new URL('/inicio', appUrl);
-
-  const response = NextResponse.redirect(redirectUrl, {
-    status: 303,
-  });
+  const response = redirectRelative(membership ? '/liga' : '/inicio');
 
   response.cookies.set(sessionCookieName, token, authCookieOptions);
 
