@@ -3,12 +3,12 @@ import { redirect } from 'next/navigation';
 
 import logoImage from '@/app/img/logo.png';
 import { ProtectedLink } from '@/app/protected-link';
-import { requireCurrentSession } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { requireSession } from '@/lib/require-session';
 import { sortRanking } from '@/lib/ranking';
 
 export default async function RankingPage() {
-  const session = await requireCurrentSession();
+  const session = await requireSession();
 
   const league = await prisma.league.findUnique({
     where: {

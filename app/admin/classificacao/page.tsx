@@ -1,14 +1,9 @@
 import { prisma } from '@/lib/prisma';
-import { getCurrentUser } from '@/lib/auth';
 import { calculateGroupStandings, getQualifiedSlots } from '@/lib/standings';
-import { redirect } from 'next/navigation';
+import { requireUser } from '@/lib/require-session';
 
 export default async function AdminClassificacaoPage() {
-  const user = await getCurrentUser();
-
-  if (!user) {
-    redirect('/login');
-  }
+  const user = await requireUser();
 
   if (!user.isSystemAdmin) {
     return (

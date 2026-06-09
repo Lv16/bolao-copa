@@ -10,6 +10,7 @@
     "lint": "eslint .",
     "test": "tsx --test tests/*.test.ts",
     "seed": "tsx prisma/seed.ts",
+    "ensure:admin": "tsx prisma/ensure-admin.ts",
     "seed:matches": "tsx prisma/seed-matches.ts",
     "seed:knockout": "tsx prisma/seed-knockout.ts",
     "resolve:knockout": "tsx prisma/resolve-knockout-slots.ts",

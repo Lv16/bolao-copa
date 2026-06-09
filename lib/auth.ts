@@ -1,6 +1,7 @@
 import { cookies } from 'next/headers';
-import { redirect } from 'next/navigation';
+
 import { prisma } from './prisma';
+import { resolveSessionMembership } from './session-selection';
 
 export async function getCurrentUser() {
   const cookieStore = await cookies();
@@ -26,21 +27,39 @@ export async function getCurrentSession() {
   const userId = cookieStore.get('bolao_user_id')?.value;
   const leagueId = cookieStore.get('bolao_league_id')?.value;
 
-  if (!userId || !leagueId) {
+  if (!userId) {
     return null;
   }
 
-  const membership = await prisma.leagueMember.findUnique({
-    where: {
-      leagueId_userId: {
-        leagueId,
-        userId,
-      },
-    },
-    include: {
-      user: true,
-      league: true,
-    },
+  const membership = await resolveSessionMembership({
+    leagueId,
+    userId,
+    findMembership: (resolvedLeagueId, resolvedUserId) =>
+      prisma.leagueMember.findUnique({
+        where: {
+          leagueId_userId: {
+            leagueId: resolvedLeagueId,
+            userId: resolvedUserId,
+          },
+        },
+        include: {
+          user: true,
+          league: true,
+        },
+      }),
+    findFallbackMembership: (resolvedUserId) =>
+      prisma.leagueMember.findFirst({
+        where: {
+          userId: resolvedUserId,
+        },
+        include: {
+          user: true,
+          league: true,
+        },
+        orderBy: {
+          createdAt: 'asc',
+        },
+      }),
   });
 
   if (!membership) {
@@ -52,30 +71,4 @@ export async function getCurrentSession() {
     league: membership.league,
     membership,
   };
-}
-
-export async function requireCurrentUser() {
-  const user = await getCurrentUser();
-
-  if (!user) {
-    redirect('/login');
-  }
-
-  return user;
-}
-
-export async function requireCurrentSession() {
-  const user = await getCurrentUser();
-
-  if (!user) {
-    redirect('/login');
-  }
-
-  const session = await getCurrentSession();
-
-  if (!session) {
-    redirect('/minhas-ligas');
-  }
-
-  return session;
 }

@@ -43,11 +43,9 @@ export async function POST(request: NextRequest) {
 
   const membership = user.memberships[0];
 
-  const redirectUrl = user.isSystemAdmin
-    ? new URL('/admin/resultados', request.url)
-    : membership
-      ? new URL('/liga', request.url)
-      : new URL('/minhas-ligas', request.url);
+  const redirectUrl = membership
+    ? new URL('/liga', request.url)
+    : new URL('/minhas-ligas', request.url);
 
   const response = NextResponse.redirect(redirectUrl);
 

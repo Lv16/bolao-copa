@@ -4,13 +4,13 @@ import { redirect } from 'next/navigation';
 
 import logoImage from '@/app/img/logo.png';
 import { ProtectedLink } from '@/app/protected-link';
-import { requireCurrentSession } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { requireSession } from '@/lib/require-session';
 
 async function removeMember(formData: FormData) {
   'use server';
 
-  const session = await requireCurrentSession();
+  const session = await requireSession();
 
   if (session.membership.role !== 'ADMIN') {
     return;
@@ -62,7 +62,7 @@ function TrashIcon() {
 }
 
 export default async function LigaMembrosPage() {
-  const session = await requireCurrentSession();
+  const session = await requireSession();
 
   const league = await prisma.league.findUnique({
     where: {

@@ -2,7 +2,7 @@ import { prisma } from '@/lib/prisma';
 import { getCurrentUser } from '@/lib/auth';
 import { calculateGroupStandings, getQualifiedSlots } from '@/lib/standings';
 import { revalidatePath } from 'next/cache';
-import { redirect } from 'next/navigation';
+import { requireUser } from '@/lib/require-session';
 
 function isComplexThirdSlot(slot: string | null) {
   if (!slot) return false;
@@ -21,11 +21,7 @@ async function resolveThirdSlot(formData: FormData) {
 
   const user = await getCurrentUser();
 
-  if (!user) {
-    redirect('/login');
-  }
-
-  if (!user.isSystemAdmin) {
+  if (!user || !user.isSystemAdmin) {
     return;
   }
 
@@ -77,11 +73,7 @@ async function resolveThirdSlot(formData: FormData) {
 }
 
 export default async function AdminTerceirosPage() {
-  const user = await getCurrentUser();
-
-  if (!user) {
-    redirect('/login');
-  }
+  const user = await requireUser();
 
   if (!user.isSystemAdmin) {
     return (

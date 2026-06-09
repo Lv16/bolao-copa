@@ -4,7 +4,7 @@ import { redirect } from 'next/navigation';
 
 import logoImage from '@/app/img/logo.png';
 import { ProtectedLink } from '@/app/protected-link';
-import { requireCurrentSession } from '@/lib/auth';
+import { requireSession } from '@/lib/require-session';
 import { prisma } from '@/lib/prisma';
 import { InviteLink } from './invite-link';
 
@@ -73,7 +73,7 @@ function ActionCard({ href, icon, label }: ActionCardProps) {
 }
 
 export default async function LigaPage() {
-  const session = await requireCurrentSession();
+  const session = await requireSession();
 
   const league = await prisma.league.findUnique({
     where: {

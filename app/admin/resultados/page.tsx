@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
+import { requireUser } from "@/lib/require-session";
 import { MatchPhase, MatchStatus } from "@prisma/client";
 import { formatPhase, formatStatus } from '@/lib/format';
 import { advanceKnockoutWinner, resolveSimpleKnockoutSlots } from '@/lib/knockout';
@@ -111,11 +112,7 @@ async function recalculatePredictions(matchId: string) {
 }
 
 export default async function AdminResultadosPage() {
-  const user = await getCurrentUser();
-
-  if (!user) {
-    redirect("/login");
-  }
+  const user = await requireUser();
 
   if (!user.isSystemAdmin) {
     return (

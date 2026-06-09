@@ -4,16 +4,16 @@ import { revalidatePath } from 'next/cache';
 
 import logoImage from '@/app/img/logo.png';
 import { ProtectedLink } from '@/app/protected-link';
-import { requireCurrentSession } from '@/lib/auth';
 import { getFlagUrl } from '@/lib/flags';
 import { formatPhase, isMatchPredictionLocked } from '@/lib/format';
 import { prisma } from '@/lib/prisma';
+import { requireSession } from '@/lib/require-session';
 import { MatchCard } from './match-card';
 
 async function savePrediction(formData: FormData) {
   'use server';
 
-  const session = await requireCurrentSession();
+  const session = await requireSession();
   const userId = session.user.id;
   const leagueId = session.league.id;
 
@@ -98,7 +98,7 @@ async function savePrediction(formData: FormData) {
 }
 
 export default async function PalpitesPage() {
-  const session = await requireCurrentSession();
+  const session = await requireSession();
   const userId = session.user.id;
   const leagueId = session.league.id;
 

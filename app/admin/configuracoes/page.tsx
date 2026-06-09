@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
+import { requireUser } from "@/lib/require-session";
 
 async function togglePredictionsLock() {
   "use server";
@@ -38,11 +38,7 @@ async function togglePredictionsLock() {
 }
 
 export default async function AdminConfiguracoesPage() {
-  const user = await getCurrentUser();
-
-  if (!user) {
-    redirect("/login");
-  }
+  const user = await requireUser();
 
   if (!user.isSystemAdmin) {
     return (
