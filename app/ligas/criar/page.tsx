@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation';
 
 import logoImage from '@/app/img/logo.png';
 import { getCurrentUser } from '@/lib/auth';
+import { authCookieOptions } from '@/lib/cookies';
 import { prisma } from '@/lib/prisma';
 
 function generateInviteCode() {
@@ -69,12 +70,7 @@ async function createLeague(formData: FormData) {
 
   const cookieStore = await cookies();
 
-  cookieStore.set('bolao_league_id', league.id, {
-    httpOnly: true,
-    sameSite: 'lax',
-    path: '/',
-    maxAge: 60 * 60 * 24 * 30,
-  });
+  cookieStore.set('bolao_league_id', league.id, authCookieOptions);
 
   redirect('/liga');
 }

@@ -2,6 +2,7 @@ import bcrypt from 'bcryptjs';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 
+import { authCookieOptions } from '@/lib/cookies';
 import { prisma } from '@/lib/prisma';
 import { LoginScreen } from './login-screen';
 
@@ -45,12 +46,7 @@ async function login(formData: FormData) {
 
   const cookieStore = await cookies();
 
-  cookieStore.set('bolao_user_id', user.id, {
-    httpOnly: true,
-    sameSite: 'lax',
-    path: '/',
-    maxAge: 60 * 60 * 24 * 30,
-  });
+  cookieStore.set('bolao_user_id', user.id, authCookieOptions);
 
   if (user.isSystemAdmin) {
     redirect('/admin/resultados');
@@ -62,12 +58,7 @@ async function login(formData: FormData) {
     redirect('/inicio');
   }
 
-  cookieStore.set('bolao_league_id', membership.league.id, {
-    httpOnly: true,
-    sameSite: 'lax',
-    path: '/',
-    maxAge: 60 * 60 * 24 * 30,
-  });
+  cookieStore.set('bolao_league_id', membership.league.id, authCookieOptions);
 
   redirect('/inicio');
 }
