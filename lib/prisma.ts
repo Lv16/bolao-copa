@@ -7,23 +7,30 @@ const globalForPrisma = globalThis as unknown as {
 };
 
 const databaseUrl = process.env.DATABASE_URL;
+const isNextBuild = process.env.NEXT_PHASE === "phase-production-build";
 
-if (!databaseUrl) {
+if (!databaseUrl && !isNextBuild) {
   throw new Error("DATABASE_URL must be configured for Prisma.");
 }
+
+const fallbackBuildDatabaseUrl =
+  "postgresql://user:password@localhost:5432/database";
 
 export function createPrismaAdapter(url: string) {
   return new PrismaPg(url);
 }
 
-const adapter = createPrismaAdapter(databaseUrl);
+const adapter = createPrismaAdapter(databaseUrl ?? fallbackBuildDatabaseUrl);
+
 const prismaClient: PrismaClient =
   globalForPrisma.prisma ??
   new PrismaClient({
     adapter,
-    log: ["query"],
+    log: process.env.NODE_ENV === "production" ? [] : ["query"],
   });
 
 export const prisma = prismaClient;
 
-if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
+if (process.env.NODE_ENV !== "production") {
+  globalForPrisma.prisma = prisma;
+}
