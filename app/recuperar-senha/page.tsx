@@ -3,6 +3,7 @@ import bcrypt from 'bcryptjs';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 
+import { PasswordField } from '@/app/auth/password-field';
 import logoImage from '@/app/img/logo.png';
 import { prisma } from '@/lib/prisma';
 
@@ -144,29 +145,8 @@ export default async function RecuperarSenhaPage({
                 />
               </div>
 
-              <div>
-                <label className="mb-2 block text-sm font-semibold text-[#262626]">
-                  Nova senha
-                </label>
-                <input
-                  name="password"
-                  type="password"
-                  className="h-12 w-full rounded-full border border-[#d6d6d6] bg-white px-4 text-base text-black outline-none"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="mb-2 block text-sm font-semibold text-[#262626]">
-                  Confirmar senha
-                </label>
-                <input
-                  name="confirmPassword"
-                  type="password"
-                  className="h-12 w-full rounded-full border border-[#d6d6d6] bg-white px-4 text-base text-black outline-none"
-                  required
-                />
-              </div>
+              <PasswordField name="password" label="Nova senha" />
+              <PasswordField name="confirmPassword" label="Confirmar senha" />
 
               <button
                 type="submit"

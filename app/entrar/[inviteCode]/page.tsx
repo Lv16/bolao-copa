@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 
+import { PasswordField } from '@/app/auth/password-field';
 import copaImage from '@/app/img/copa.jpg';
 import logoImage from '@/app/img/logo.png';
 import { prisma } from '@/lib/prisma';
@@ -206,39 +207,8 @@ export default async function EntrarLigaPage({ params, searchParams }: PageProps
                 />
               </div>
 
-              <div>
-                <label className="mb-2 block text-sm font-semibold text-[#262626]">
-                  Senha
-                </label>
-                <div className="relative">
-                  <input
-                    name="password"
-                    type="password"
-                    className="h-12 w-full rounded-full border border-[#d6d6d6] bg-white px-4 pr-12 text-base text-black outline-none"
-                    required
-                  />
-                  <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[#8a8a8a]">
-                    ◉
-                  </span>
-                </div>
-              </div>
-
-              <div>
-                <label className="mb-2 block text-sm font-semibold text-[#262626]">
-                  Confirme senha
-                </label>
-                <div className="relative">
-                  <input
-                    name="confirmPassword"
-                    type="password"
-                    className="h-12 w-full rounded-full border border-[#d6d6d6] bg-white px-4 pr-12 text-base text-black outline-none"
-                    required
-                  />
-                  <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[#8a8a8a]">
-                    ◉
-                  </span>
-                </div>
-              </div>
+              <PasswordField name="password" label="Senha" />
+              <PasswordField name="confirmPassword" label="Confirme senha" />
 
               <div className="my-1 h-px bg-[#b28b34]/60" />
 
