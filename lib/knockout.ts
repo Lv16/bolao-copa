@@ -1,5 +1,12 @@
 import { prisma } from '@/lib/prisma';
 import { calculateGroupStandings, getQualifiedSlots } from '@/lib/standings';
+import {
+  getComplexThirdSlotDefinitions,
+  getConfirmedThirdPlaceGroupNames,
+  getKnockoutThirdSlotAssignmentsMap,
+} from '@/lib/third-place-admin';
+import { getThirdPlaceRows, validateConfirmedThirdPlaceGroups } from '@/lib/third-places';
+import { validateThirdSlotAssignments } from '@/lib/third-slot-assignments';
 
 function isSimpleQualifiedSlot(slot: string | null): slot is string {
   if (!slot) return false;
@@ -20,6 +27,11 @@ export async function resolveSimpleKnockoutSlots() {
 
   const standingsByGroup = calculateGroupStandings(groupMatches);
   const qualifiedSlots = getQualifiedSlots(standingsByGroup);
+  const thirdRows = getThirdPlaceRows(standingsByGroup);
+  const thirdRowsByGroup = new Map(
+    thirdRows.map((row) => [row.groupName.toUpperCase(), row] as const)
+  );
+  const confirmedGroupNames = await getConfirmedThirdPlaceGroupNames();
 
   const knockoutMatches = await prisma.match.findMany({
     where: {
@@ -30,6 +42,17 @@ export async function resolveSimpleKnockoutSlots() {
     orderBy: {
       number: 'asc',
     },
+  });
+
+  const complexSlotDefinitions = getComplexThirdSlotDefinitions(
+    knockoutMatches.filter((match) => match.phase === 'ROUND_OF_32')
+  );
+  const complexAssignments = await getKnockoutThirdSlotAssignmentsMap();
+  const confirmedValidation = validateConfirmedThirdPlaceGroups(thirdRows, confirmedGroupNames);
+  const assignmentValidation = validateThirdSlotAssignments({
+    slots: complexSlotDefinitions,
+    confirmedGroupNames: confirmedValidation.confirmedGroupNames,
+    assignments: complexAssignments,
   });
 
   for (const match of knockoutMatches) {
@@ -53,6 +76,30 @@ export async function resolveSimpleKnockoutSlots() {
 
       if (slot) {
         data.awayTeamId = slot.teamId;
+      } else {
+        data.awayTeamId = null;
+      }
+    }
+
+    if (match.phase === 'ROUND_OF_32') {
+      const homeKey = `${match.id}:HOME`;
+      const awayKey = `${match.id}:AWAY`;
+
+      const selectedHomeGroup =
+        assignmentValidation.isValid ? complexAssignments[homeKey]?.toUpperCase() : null;
+      const selectedAwayGroup =
+        assignmentValidation.isValid ? complexAssignments[awayKey]?.toUpperCase() : null;
+
+      if (homeKey in complexAssignments || match.homeSlot?.includes('/')) {
+        data.homeTeamId = selectedHomeGroup
+          ? thirdRowsByGroup.get(selectedHomeGroup)?.teamId ?? null
+          : null;
+      }
+
+      if (awayKey in complexAssignments || match.awaySlot?.includes('/')) {
+        data.awayTeamId = selectedAwayGroup
+          ? thirdRowsByGroup.get(selectedAwayGroup)?.teamId ?? null
+          : null;
       }
     }
 

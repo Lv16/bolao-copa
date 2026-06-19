@@ -1,4 +1,5 @@
 import { LoginScreen } from './login-screen';
+import { getSingleParam } from '@/lib/route-params';
 
 type LoginPageProps = {
   searchParams: Promise<{
@@ -8,7 +9,9 @@ type LoginPageProps = {
 };
 
 export default async function LoginPage({ searchParams }: LoginPageProps) {
-  const { error, recovery } = await searchParams;
+  const resolvedSearchParams = await searchParams;
+  const error = getSingleParam(resolvedSearchParams.error, '');
+  const recovery = getSingleParam(resolvedSearchParams.recovery, '');
 
   return <LoginScreen error={error} recovery={recovery} />;
 }

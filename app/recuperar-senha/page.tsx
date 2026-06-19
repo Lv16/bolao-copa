@@ -6,6 +6,7 @@ import { redirect } from 'next/navigation';
 import { PasswordField } from '@/app/auth/password-field';
 import logoImage from '@/app/img/logo.png';
 import { prisma } from '@/lib/prisma';
+import { getSingleParam } from '@/lib/route-params';
 
 async function validateEmail(formData: FormData) {
   'use server';
@@ -73,8 +74,10 @@ export default async function RecuperarSenhaPage({
 }: {
   searchParams: Promise<{ error?: string; email?: string }>;
 }) {
-  const { error, email } = await searchParams;
-  const normalizedEmail = email?.toLowerCase().trim() || '';
+  const resolvedSearchParams = await searchParams;
+  const error = getSingleParam(resolvedSearchParams.error, '');
+  const email = getSingleParam(resolvedSearchParams.email, '');
+  const normalizedEmail = email.toLowerCase().trim();
 
   const existingUser = normalizedEmail
     ? await prisma.user.findUnique({

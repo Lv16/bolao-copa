@@ -9,6 +9,7 @@ import copaImage from '@/app/img/copa.jpg';
 import logoImage from '@/app/img/logo.png';
 import { authCookieOptions, sessionCookieName } from '@/lib/cookies';
 import { prisma } from '@/lib/prisma';
+import { getSingleParam } from '@/lib/route-params';
 import { createSessionToken } from '@/lib/session-token';
 
 type CadastroPageProps = {
@@ -84,7 +85,8 @@ async function register(formData: FormData) {
 }
 
 export default async function CadastroPage({ searchParams }: CadastroPageProps) {
-  const { error } = await searchParams;
+  const resolvedSearchParams = await searchParams;
+  const error = getSingleParam(resolvedSearchParams.error, '');
 
   return (
     <main className="auth-noise relative min-h-screen overflow-hidden bg-black text-white">

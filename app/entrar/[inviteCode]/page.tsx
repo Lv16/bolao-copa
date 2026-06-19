@@ -9,6 +9,7 @@ import copaImage from '@/app/img/copa.jpg';
 import logoImage from '@/app/img/logo.png';
 import { authCookieOptions, sessionCookieName } from '@/lib/cookies';
 import { prisma } from '@/lib/prisma';
+import { getSingleParam } from '@/lib/route-params';
 import { createSessionToken } from '@/lib/session-token';
 
 type PageProps = {
@@ -100,8 +101,10 @@ async function joinLeague(formData: FormData) {
 }
 
 export default async function EntrarLigaPage({ params, searchParams }: PageProps) {
-  const { inviteCode } = await params;
-  const { error } = await searchParams;
+  const resolvedParams = await params;
+  const resolvedSearchParams = await searchParams;
+  const inviteCode = getSingleParam(resolvedParams.inviteCode, 'COPA26');
+  const error = getSingleParam(resolvedSearchParams.error, '');
 
   const league = await prisma.league.findUnique({
     where: {

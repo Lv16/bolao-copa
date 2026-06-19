@@ -1,133 +1,38 @@
-import { prisma } from "@/lib/prisma";
-import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
-import { getCurrentUser } from "@/lib/auth";
-import { requireUser } from "@/lib/require-session";
-import { MatchPhase, MatchStatus } from "@prisma/client";
+import { MatchPhase } from '@prisma/client';
+
 import { formatPhase, formatStatus } from '@/lib/format';
-import { advanceKnockoutWinner, resolveSimpleKnockoutSlots } from '@/lib/knockout';
-import {
-  calculateGroupPredictionPoints,
-  calculateKnockoutPredictionPoints,
-} from '@/lib/prediction-scoring';
+import { prisma } from '@/lib/prisma';
+import { requireUser } from '@/lib/require-session';
+import { getRoundOf32ThirdSlotsState } from '@/lib/third-place-admin';
+import { AdminResultsWorkspace } from './workspace';
 
-async function updateResult(formData: FormData) {
-  "use server";
-  const user = await getCurrentUser();
-
-  if (!user || !user.isSystemAdmin) {
-    return;
-  }
-
-  const matchId = String(formData.get("matchId"));
-  const homeScore = Number(formData.get("homeScore"));
-  const awayScore = Number(formData.get("awayScore"));
-  const winnerTeamId = String(formData.get('winnerTeamId') || '');
-
-  if (!matchId || Number.isNaN(homeScore) || Number.isNaN(awayScore)) {
-    return;
-  }
-
-  await prisma.match.update({
-    where: {
-      id: matchId,
-    },
-    data: {
-      homeScore,
-      awayScore,
-      status: MatchStatus.FINISHED,
-      winnerTeamId: winnerTeamId || null,
-    },
-  });
-
-  await recalculatePredictions(matchId);
-  await resolveSimpleKnockoutSlots();
-  await advanceKnockoutWinner(matchId);
-
-  revalidatePath("/");
-  revalidatePath("/admin/resultados");
-  revalidatePath('/');
-  revalidatePath('/palpites');
-  revalidatePath('/admin/resultados');
-  revalidatePath('/admin/terceiros');
-  revalidatePath('/ranking');
-  redirect("/admin/resultados");
-}
-
-async function recalculatePredictions(matchId: string) {
-  const match = await prisma.match.findUnique({
-    where: {
-      id: matchId,
-    },
-    include: {
-      predictions: true,
-    },
-  });
-
-  if (!match || match.homeScore === null || match.awayScore === null) {
-    return;
-  }
-
-  const realHome = match.homeScore;
-  const realAway = match.awayScore;
-
-  for (const prediction of match.predictions) {
-    let points = 0;
-
-    if (match.phase !== 'GROUP') {
-      const realWinnerTeamId =
-        match.winnerTeamId ??
-        (realHome > realAway
-          ? match.homeTeamId
-          : realAway > realHome
-          ? match.awayTeamId
-          : null);
-
-      points = calculateKnockoutPredictionPoints({
-        realHomeScore: realHome,
-        realAwayScore: realAway,
-        predictedHomeScore: prediction.homeScore,
-        predictedAwayScore: prediction.awayScore,
-        realWinnerTeamId,
-        predictedWinnerTeamId: prediction.winnerTeamId,
-      });
-    } else {
-      points = calculateGroupPredictionPoints({
-        realHomeScore: realHome,
-        realAwayScore: realAway,
-        predictedHomeScore: prediction.homeScore,
-        predictedAwayScore: prediction.awayScore,
-      });
-    }
-
-    await prisma.prediction.update({
-      where: {
-        id: prediction.id,
-      },
-      data: {
-        points,
-      },
-    });
-  }
-}
+const phaseOrder: MatchPhase[] = [
+  'GROUP',
+  'ROUND_OF_32',
+  'ROUND_OF_16',
+  'QUARTER_FINAL',
+  'SEMI_FINAL',
+  'THIRD_PLACE',
+  'FINAL',
+];
 
 export default async function AdminResultadosPage() {
   const user = await requireUser();
 
   if (!user.isSystemAdmin) {
     return (
-      <main className="min-h-screen bg-zinc-950 text-white">
-        <section className="mx-auto max-w-6xl px-6 py-10">
-          <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-8 text-center">
-            <h1 className="text-2xl font-bold mb-2">Acesso negado</h1>
-            <p className="mb-4 text-zinc-400">
-              Apenas administradores da liga podem lançar resultados.
+      <main className="min-h-screen bg-stone-950 text-white">
+        <section className="mx-auto max-w-4xl px-6 py-16">
+          <div className="rounded-[2rem] border border-red-500/30 bg-red-500/10 p-8 text-center">
+            <h1 className="text-3xl font-black text-red-200">Acesso negado</h1>
+            <p className="mt-3 text-sm text-red-100/80">
+              Apenas o administrador geral pode editar resultados e montar os 16 avos.
             </p>
             <a
               href="/"
-              className="rounded-xl border border-zinc-700 px-5 py-3 text-sm font-bold text-zinc-200 transition hover:bg-zinc-800"
+              className="mt-6 inline-flex rounded-2xl border border-red-200/20 px-5 py-3 text-sm font-bold text-red-100 transition hover:bg-red-500/10"
             >
-              Voltar para Home
+              Voltar para a home
             </a>
           </div>
         </section>
@@ -135,191 +40,147 @@ export default async function AdminResultadosPage() {
     );
   }
 
-  const matches = await prisma.match.findMany({
-    include: {
-      homeTeam: true,
-      awayTeam: true,
-    },
-    orderBy: {
-      number: "asc",
-    },
+  const [matches, roundOf32State] = await Promise.all([
+    prisma.match.findMany({
+      include: {
+        homeTeam: true,
+        awayTeam: true,
+      },
+      orderBy: {
+        number: 'asc',
+      },
+    }),
+    getRoundOf32ThirdSlotsState(),
+  ]);
+
+  const phaseSections = phaseOrder
+    .map((phase) => {
+      const phaseMatches = matches.filter((match) => match.phase === phase);
+
+      if (phaseMatches.length === 0) {
+        return null;
+      }
+
+      const groupsMap = phaseMatches.reduce((acc, match) => {
+        const groupKey = phase === 'GROUP' ? match.groupName ?? 'SEM_GRUPO' : 'FASE';
+
+        if (!acc[groupKey]) {
+          acc[groupKey] = [];
+        }
+
+        acc[groupKey].push({
+          id: match.id,
+          number: match.number,
+          phase: match.phase,
+          phaseLabel: formatPhase(match.phase),
+          groupName: match.groupName,
+          homeTeamId: match.homeTeam?.id ?? null,
+          awayTeamId: match.awayTeam?.id ?? null,
+          homeTeamName: match.homeTeam?.name ?? match.homeSlot ?? 'A definir',
+          awayTeamName: match.awayTeam?.name ?? match.awaySlot ?? 'A definir',
+          homeSlot: match.homeSlot,
+          awaySlot: match.awaySlot,
+          startsAtLabel: match.startsAt
+            ? match.startsAt.toLocaleString('pt-BR', {
+                dateStyle: 'short',
+                timeStyle: 'short',
+              })
+            : 'Sem data definida',
+          status: match.status,
+          statusLabel: formatStatus(match.status),
+          homeScore: match.homeScore,
+          awayScore: match.awayScore,
+          winnerTeamId: match.winnerTeamId,
+          isFinished: match.status === 'FINISHED',
+        });
+
+        return acc;
+      }, {} as Record<string, Array<{
+        id: string;
+        number: number;
+        phase: MatchPhase;
+        phaseLabel: string;
+        groupName: string | null;
+        homeTeamId: string | null;
+        awayTeamId: string | null;
+        homeTeamName: string;
+        awayTeamName: string;
+        homeSlot: string | null;
+        awaySlot: string | null;
+        startsAtLabel: string;
+        status: string;
+        statusLabel: string;
+        homeScore: number | null;
+        awayScore: number | null;
+        winnerTeamId: string | null;
+        isFinished: boolean;
+      }>>);
+
+      const groups = Object.entries(groupsMap).map(([groupKey, groupMatches]) => ({
+        key: groupKey,
+        label: phase === 'GROUP' ? `Grupo ${groupKey}` : formatPhase(phase),
+        matches: groupMatches,
+      }));
+
+      return {
+        phase,
+        label: formatPhase(phase),
+        groups,
+      };
+    })
+    .filter((section): section is NonNullable<typeof section> => Boolean(section));
+
+  const standingsGroups = Object.keys(roundOf32State.standingsByGroup)
+    .sort()
+    .map((groupName) => ({
+      groupName,
+      rows: roundOf32State.standingsByGroup[groupName].map((row, index) => ({
+        ...row,
+        position: index + 1,
+      })),
+    }));
+
+  const thirdRanking = roundOf32State.thirdRows.map((row) => ({
+    ...row,
+    isSuggested: roundOf32State.suggestedGroupNames.includes(row.groupName),
+    isConfirmed: roundOf32State.confirmedGroupNames.includes(row.groupName),
+  }));
+
+  const roundOf32MatchesById = new Map(
+    roundOf32State.roundOf32Matches.map((match) => [match.id, match])
+  );
+
+  const complexSlots = roundOf32State.slots.map((slot) => {
+    const match = roundOf32MatchesById.get(slot.matchId);
+
+    return {
+      key: slot.key,
+      matchId: slot.matchId,
+      matchNumber: slot.matchNumber,
+      side: slot.side,
+      slotLabel: slot.slotLabel,
+      allowedGroupNames: slot.allowedGroupNames,
+      currentGroupName: slot.currentGroupName,
+      suggestedGroupName: slot.suggestedGroupName,
+      selectedTeamName: slot.selectedRow?.teamName ?? null,
+      suggestedTeamName: slot.suggestedRow?.teamName ?? null,
+      opponentTeamName:
+        slot.side === 'HOME'
+          ? match?.awayTeam?.name ?? match?.awaySlot ?? 'A definir'
+          : match?.homeTeam?.name ?? match?.homeSlot ?? 'A definir',
+    };
   });
 
-  const matchesByPhaseAndGroup = matches.reduce((acc, match) => {
-    const phase = match.phase;
-    const group = match.groupName ?? 'Mata-mata';
-
-    if (!acc[phase]) {
-      acc[phase] = {};
-    }
-
-    if (!acc[phase][group]) {
-      acc[phase][group] = [];
-    }
-
-    acc[phase][group].push(match);
-
-    return acc;
-  }, {} as Record<string, Record<string, typeof matches[number][]>>);
-
-  const phaseOrder: MatchPhase[] = [
-    'GROUP',
-    'ROUND_OF_32',
-    'ROUND_OF_16',
-    'QUARTER_FINAL',
-    'SEMI_FINAL',
-    'THIRD_PLACE',
-    'FINAL',
-  ];
-
   return (
-    <main className="min-h-screen bg-zinc-950 text-white">
-      <section className="mx-auto max-w-6xl px-6 py-10">
-        <div className="mb-8 flex items-center justify-between gap-4">
-          <div>
-            <p className="mb-2 text-sm font-semibold uppercase tracking-[0.3em] text-green-400">
-              Admin
-            </p>
-
-            <h1 className="text-4xl font-bold">Lançar resultados</h1>
-
-            <p className="mt-2 text-zinc-400">
-              Preencha o placar real. Ao salvar, o jogo será finalizado e os
-              palpites serão recalculados.
-            </p>
-          </div>
-
-          <a
-            href="/"
-            className="rounded-xl border border-zinc-700 px-5 py-3 text-sm font-bold text-zinc-200 transition hover:bg-zinc-800"
-          >
-            Voltar
-          </a>
-        </div>
-
-        <div className="grid gap-4">
-          {phaseOrder.map((phase) => {
-            const phaseGroups = matchesByPhaseAndGroup[phase as string];
-
-            if (!phaseGroups) {
-              return null;
-            }
-
-            return (
-              <div key={phase}>
-                <div className="mb-3">
-                  <h3 className="text-xl font-bold">{formatPhase(phase as MatchPhase)}</h3>
-                  <p className="text-sm text-zinc-400">Lance os resultados reais dos jogos desta fase.</p>
-                </div>
-
-                {Object.entries(phaseGroups).map(([groupName, groupMatches]) => (
-                  <div key={groupName} className="mb-4">
-                    <div className="mb-3 flex items-center justify-between gap-4">
-                      <div>
-                        <h4 className="text-lg font-bold">
-                          {phase === 'GROUP' ? `Grupo ${groupName}` : groupName}
-                        </h4>
-
-                        <p className="text-sm text-zinc-400">{groupMatches.length} jogos</p>
-                      </div>
-                    </div>
-
-                    {groupMatches.map((match) => (
-                      <div
-                        key={match.id}
-                        className="rounded-2xl border border-zinc-800 bg-zinc-900 p-5 mb-3"
-                      >
-                        <div className="mb-4 flex items-center justify-between gap-4">
-                          <div>
-                            <span className="rounded-full bg-zinc-800 px-3 py-1 text-xs font-semibold text-zinc-300">
-                              Jogo {match.number}
-                            </span>
-
-                            {match.groupName && (
-                              <span className="ml-2 rounded-full bg-blue-500/10 px-3 py-1 text-xs font-semibold text-blue-300">
-                                Grupo {match.groupName}
-                              </span>
-                            )}
-                          </div>
-
-                          <span className="text-xs text-zinc-500">{formatStatus(match.status)}</span>
-                        </div>
-
-                        <form
-                          action={updateResult}
-                          className="grid grid-cols-[1fr_90px_40px_90px_1fr_auto] items-center gap-3"
-                        >
-                          <input type="hidden" name="matchId" value={match.id} />
-
-                          <div className="text-right">
-                            <p className="font-bold">
-                              {match.homeTeam?.name ?? match.homeSlot}
-                            </p>
-                            <p className="text-xs text-zinc-500">{match.homeSlot}</p>
-                          </div>
-
-                          <input
-                            name="homeScore"
-                            type="number"
-                            min="0"
-                            defaultValue={match.homeScore ?? ""}
-                            className="rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-3 text-center font-bold outline-none focus:border-green-400"
-                            required
-                          />
-
-                          <span className="text-center font-bold text-zinc-500">x</span>
-
-                          <input
-                            name="awayScore"
-                            type="number"
-                            min="0"
-                            defaultValue={match.awayScore ?? ""}
-                            className="rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-3 text-center font-bold outline-none focus:border-green-400"
-                            required
-                          />
-
-                          <div>
-                            <p className="font-bold">
-                              {match.awayTeam?.name ?? match.awaySlot}
-                            </p>
-                            <p className="text-xs text-zinc-500">{match.awaySlot}</p>
-                          </div>
-
-                          {match.phase !== 'GROUP' && (
-                            <div className="flex flex-col">
-                              <label className="text-xs text-zinc-400 mb-1">Vencedor</label>
-                              <select
-                                name="winnerTeamId"
-                                defaultValue={match.winnerTeamId ?? ''}
-                                className="rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm outline-none"
-                              >
-                                <option value="">—</option>
-                                {match.homeTeam && (
-                                  <option value={match.homeTeam.id}>{match.homeTeam.name}</option>
-                                )}
-                                {match.awayTeam && (
-                                  <option value={match.awayTeam.id}>{match.awayTeam.name}</option>
-                                )}
-                              </select>
-                            </div>
-                          )}
-
-                          <button
-                            type="submit"
-                            className="rounded-xl bg-green-500 px-5 py-3 text-sm font-bold text-zinc-950 transition hover:bg-green-400"
-                          >
-                            Salvar
-                          </button>
-                        </form>
-                      </div>
-                    ))}
-                  </div>
-                ))}
-              </div>
-            );
-          })}
-        </div>
-      </section>
-    </main>
+    <AdminResultsWorkspace
+      phaseSections={phaseSections}
+      standingsGroups={standingsGroups}
+      thirdRanking={thirdRanking}
+      confirmedGroupNames={roundOf32State.confirmedGroupNames}
+      suggestedGroupNames={roundOf32State.suggestedGroupNames}
+      confirmedValidationErrors={roundOf32State.confirmedValidation.errors}
+      complexSlots={complexSlots}
+      slotAssignmentErrors={roundOf32State.assignmentValidation.errors}
+    />
   );
 }
